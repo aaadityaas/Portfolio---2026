@@ -14,6 +14,9 @@
 </head>
 
 <body class="about-page">
+    <script>
+        try { if (localStorage.getItem('portfolio-theme') === 'dark') document.body.classList.add('night-mode'); } catch (e) {}
+    </script>
     <div data-site-header data-page="about"></div>
 
     <main class="about-main">

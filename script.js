@@ -86,6 +86,49 @@ function updateShutterPositions(animate = true) {
 createShutters();
 */
 
+const THEME_STORAGE_KEY = 'portfolio-theme';
+
+function applyStoredTheme() {
+    try {
+        if (localStorage.getItem(THEME_STORAGE_KEY) === 'dark') {
+            document.body.classList.add('night-mode');
+        } else {
+            document.body.classList.remove('night-mode');
+        }
+    } catch (_) {
+        /* ignore private mode / blocked storage */
+    }
+}
+
+applyStoredTheme();
+
+function syncThemeToggle(btn) {
+    if (!btn) return;
+    const on = document.body.classList.contains('night-mode');
+    btn.setAttribute('aria-checked', on ? 'true' : 'false');
+    btn.setAttribute('aria-label', on ? 'Switch to light mode' : 'Switch to dark mode');
+}
+
+function bindThemeToggle() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    syncThemeToggle(btn);
+    btn.addEventListener('click', () => {
+        document.body.classList.toggle('night-mode');
+        const on = document.body.classList.contains('night-mode');
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, on ? 'dark' : 'light');
+        } catch (_) {}
+        syncThemeToggle(btn);
+    });
+    btn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            btn.click();
+        }
+    });
+}
+
 // --- Shared Header ---
 const headerMount = document.querySelector('[data-site-header]');
 
@@ -95,26 +138,39 @@ if (headerMount) {
 
     headerMount.innerHTML = `
         <header class="navbar">
-            <nav class="container">
-                <div class="nav-links left">
-                    <a href="index.html#work" class="nav-item${isActive('home')}">work</a>
-                    <a href="play.html" class="nav-item${isActive('play')}">play</a>
-                </div>
-
-                <a href="index.html" class="logo-circle" aria-label="Go to homepage">
+            <span class="navbar__guide navbar__guide--top" aria-hidden="true"></span>
+            <span class="navbar__guide navbar__guide--bottom" aria-hidden="true"></span>
+            <span class="navbar__guide navbar__guide--left" aria-hidden="true"></span>
+            <span class="navbar__guide navbar__guide--right" aria-hidden="true"></span>
+            <div class="navbar__pill">
+                <a href="index.html" class="navbar__logo" aria-label="Go to homepage">
                     <img src="asset/Logo.svg" alt="AS Logo" class="logo-img">
                 </a>
 
-                <div class="nav-links right">
+                <nav class="nav-tray">
+                    <a href="index.html#work" class="nav-item${isActive('home')}">work</a>
+                    <a href="play.html" class="nav-item${isActive('play')}">play</a>
                     <a href="about.html" class="nav-item${isActive('about')}">about me</a>
                     <a href="resume.html" class="nav-item${isActive('resume')}">resume</a>
-                </div>
+                    <button type="button" class="theme-toggle" id="theme-toggle" role="switch" aria-checked="false" aria-label="Switch to dark mode">
+                        <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zM11 1.5a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0v-2zm0 19a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0v-2zM1.5 11a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2h2zm21 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2h2zM4.22 4.22a1 1 0 0 1 1.42 0l1.41 1.41a1 1 0 1 1-1.41 1.42L4.22 5.64a1 1 0 0 1 0-1.42zm13.73 13.73a1 1 0 0 1 1.42 0l1.41 1.41a1 1 0 0 1-1.41 1.42l-1.42-1.41a1 1 0 0 1 0-1.42zM4.22 19.78a1 1 0 0 1 0-1.41l1.42-1.42a1 1 0 1 1 1.41 1.42l-1.41 1.41a1 1 0 0 1-1.42 0zm13.73-13.73a1 1 0 0 1 0-1.42l1.41-1.41a1 1 0 0 1 1.42 1.41l-1.42 1.42a1 1 0 0 1-1.41 0z"/>
+                            </svg>
+                        </span>
+                        <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                            </svg>
+                        </span>
+                    </button>
+                </nav>
 
                 <div class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
                     <span></span>
                     <span></span>
                 </div>
-            </nav>
+            </div>
 
             <div class="mobile-nav-overlay" id="mobile-nav-overlay">
                 <a href="index.html" class="nav-item">home</a>
@@ -125,7 +181,80 @@ if (headerMount) {
             </div>
         </header>
     `;
+    bindThemeToggle();
 }
+
+const footerMounts = document.querySelectorAll('[data-site-footer]');
+
+footerMounts.forEach(mount => {
+    mount.innerHTML = `
+        <footer class="site-footer">
+            <div class="container">
+                <section class="footer-cta-shell" aria-labelledby="footer-heading">
+                    <div class="footer-sticker-stack" aria-hidden="true">
+                        <!-- SVG Drop Shadow Overlay -->
+                        <div class="sticker-shadow">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="499" height="498" viewBox="0 0 499 498" fill="none">
+                              <g filter="url(#filter0_f_1192_10582)">
+                                <path d="M70 301.905L224.53 70L428.409 427.65L172.976 427.649L70 301.905Z" fill="#595959" fill-opacity="0.15"/>
+                              </g>
+                              <defs>
+                                <filter id="filter0_f_1192_10582" x="0" y="0" width="498.409" height="497.65" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+                                  <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+                                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                                  <feGaussianBlur stdDeviation="35" result="effect1_foregroundBlur_1192_10582"/>
+                                </filter>
+                              </defs>
+                            </svg>
+                        </div>
+                        <img src="asset/stticky%20note.png" alt="Sticky Note" class="sticker-image">
+                    </div>
+
+                    <h2 class="footer-cta-title" id="footer-heading">amaze amaze amaze?<br>let’s catchup soon</h2>
+
+                    <div class="footer-cta-bar">
+                        <p class="footer-cta-copy">Drop me a ‘Hi’ and I’ll get back</p>
+                        <a class="footer-cta-button" href="mailto:hello@aditya.design?subject=Hi%20Aditya">Send Email</a>
+                    </div>
+                </section>
+
+                <div class="footer-wordmark-shell" aria-hidden="true">
+                    <span class="footer-wordmark">
+                        <img src="asset/the.end.png" alt="the end">
+                    </span>
+                </div>
+
+                <div class="footer-meta">
+                    <p class="footer-meta-copy">
+                        Copyright → Made with procrastination and overthinking<br>
+                        over the weekends <span aria-hidden="true">🌈</span>
+                    </p>
+
+                    <div class="footer-meta-socials">
+                        <a href="#" class="footer-meta-social" aria-label="Instagram">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M16 3H8C5.239 3 3 5.239 3 8V16C3 18.761 5.239 21 8 21H16C18.761 21 21 18.761 21 16V8C21 5.239 18.761 3 16 3Z" stroke="currentColor" stroke-width="2" />
+                                <path d="M15.0002 11.3702C15.1236 12.2025 14.9811 13.0526 14.5939 13.7992C14.2067 14.5458 13.5949 15.152 12.8448 15.5323C12.0946 15.9127 11.2432 16.047 10.4122 15.916C9.58118 15.785 8.812 15.3953 8.21404 14.8018C7.61608 14.2082 7.22067 13.4419 7.08361 12.6118C6.94655 11.7818 7.07481 10.9294 7.45004 10.1765C7.82527 9.42356 8.42691 8.80733 9.17068 8.41473C9.91445 8.02213 10.7635 7.87342 11.5967 7.99024C12.446 8.1093 13.2322 8.49819 13.8382 9.10073C14.4441 9.70327 14.8374 10.4872 14.9612 11.3358" stroke="currentColor" stroke-width="2" />
+                                <path d="M16.5 7.5H16.51" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </a>
+                        <a href="#" class="footer-meta-social" aria-label="LinkedIn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M6.94 8.5H3.56V20H6.94V8.5ZM5.25 3C4.17 3 3.5 3.72 3.5 4.66C3.5 5.58 4.15 6.31 5.21 6.31H5.23C6.33 6.31 7 5.58 7 4.66C6.98 3.72 6.33 3 5.25 3ZM20.5 13.01C20.5 9.47 18.61 7.82 16.1 7.82C14.08 7.82 13.17 8.93 12.67 9.72V8.5H9.29C9.33 9.31 9.29 20 9.29 20H12.67V13.58C12.67 13.24 12.7 12.91 12.79 12.67C13.06 12 13.67 11.3 14.7 11.3C16.05 11.3 16.59 12.33 16.59 13.84V20H19.96V13.01H20.5Z" />
+                            </svg>
+                        </a>
+                        <a href="#" class="footer-meta-social" aria-label="X">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M4 4L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                                <path d="M20 4L4 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    `;
+});
 
 /*
 // --- Layout Toggle Logic ---
@@ -157,6 +286,33 @@ const cursorLabel = document.createElement('div');
 cursorLabel.id = 'custom-cursor-label';
 document.body.appendChild(cursorLabel);
 
+// Orange cursor dot
+const cursorDot = document.createElement('div');
+cursorDot.classList.add('cursor-dot');
+document.body.appendChild(cursorDot);
+
+let dotX = 0, dotY = 0;
+document.addEventListener('mousemove', (e) => {
+    dotX = e.clientX;
+    dotY = e.clientY;
+    cursorDot.style.left = dotX + 'px';
+    cursorDot.style.top = dotY + 'px';
+});
+
+document.querySelectorAll('a, button, [role="button"], input, textarea, select, .work-card').forEach(el => {
+    el.addEventListener('mouseenter', () => cursorDot.classList.add('cursor-dot--hover'));
+    el.addEventListener('mouseleave', () => cursorDot.classList.remove('cursor-dot--hover'));
+});
+
+document.querySelectorAll('.hero-v2__tag').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+        cursorDot.classList.add('cursor-dot--hover', 'cursor-dot--blue');
+    });
+    el.addEventListener('mouseleave', () => {
+        cursorDot.classList.remove('cursor-dot--hover', 'cursor-dot--blue');
+    });
+});
+
 let cursorTimeout;
 
 workCards.forEach(card => {
@@ -167,63 +323,26 @@ workCards.forEach(card => {
         }
     });
 
-    // Custom Cursor tracking & GSAP Hover Enter
-    card.addEventListener('mouseenter', (e) => {
+    card.addEventListener('mouseenter', () => {
         clearTimeout(cursorTimeout);
         const title = card.getAttribute('data-title');
         const desc = card.getAttribute('data-desc');
-        // Structure as a clean one-liner with muted description
-        cursorLabel.innerHTML = `<strong>${title}</strong> &nbsp;—&nbsp; <span style="opacity: 0.7;">${desc}</span>`;
+        if (!title) return;
+        cursorLabel.innerHTML = desc
+            ? `<strong>${title}</strong> &nbsp;—&nbsp; <span style="opacity: 0.8;">${desc}</span>`
+            : `<strong>${title}</strong>`;
         cursorLabel.style.opacity = '1';
-
-        // GSAP Initialization
-        gsap.to(card, {
-            scale: 1.02,
-            duration: 0.4,
-            ease: 'power2.out',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.12)'
-        });
     });
 
     card.addEventListener('mouseleave', () => {
         cursorTimeout = setTimeout(() => {
             cursorLabel.style.opacity = '0';
-        }, 50); // Small 50ms buffer to ensure smooth crossover between adjacent cards
-
-        // GSAP Reset
-        gsap.to(card, {
-            rotationX: 0,
-            rotationY: 0,
-            scale: 1,
-            duration: 0.8,
-            ease: 'elastic.out(1, 0.5)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-        });
+        }, 50);
     });
 
     card.addEventListener('mousemove', (e) => {
-        // Offset slightly above and to the right of the actual cursor pointer
         cursorLabel.style.left = `${e.clientX + 15}px`;
         cursorLabel.style.top = `${e.clientY - 15}px`;
-
-        // GSAP Parallax 3D Math
-        const rect = card.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const mouseX = e.clientX - centerX;
-        const mouseY = e.clientY - centerY;
-
-        // Calculate tilt
-        const tiltX = (mouseY / (rect.height / 2)) * -3;
-        const tiltY = (mouseX / (rect.width / 2)) * 3;
-
-        gsap.to(card, {
-            rotationX: tiltX,
-            rotationY: tiltY,
-            duration: 0.4,
-            ease: 'none',
-            transformPerspective: 1200
-        });
     });
 });
 
@@ -299,51 +418,100 @@ if (topContainer && centerContainer && bottomContainer) {
     // Delay start to let images load for accurate scrollHeight
     setTimeout(tick, 500);
 
-    // Mouse Interaction (Still using GSAP for smoothness on rotation)
-    const museumStage = document.querySelector('.museum-stage');
-    if (museumStage && window.gsap) {
-        document.addEventListener('mousemove', (e) => {
-            const xPct = (e.clientX / window.innerWidth - 0.5) * 2;
-            const yPct = (e.clientY / window.innerHeight - 0.5) * 2;
-
-            window.gsap.to('#stage-wrapper', {
-                rotationY: xPct * 20,
-                rotationX: -yPct * 10,
-                duration: 1.5,
-                ease: "power2.out"
-            });
-        });
-    }
+    // Mouse Interaction (Removed per request)
 }
 
 // --- Camera Interaction ---
 const heroCamera = document.getElementById('hero-camera');
 if (heroCamera) {
-    heroCamera.addEventListener('click', () => {
-        heroCamera.classList.toggle('flash-active');
+    const toggleFlash = () => heroCamera.classList.toggle('flash-active');
+    heroCamera.addEventListener('click', toggleFlash);
+    heroCamera.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleFlash();
+        }
     });
 }
 
-// --- Headphones Interaction ---
-const heroHeadphones = document.getElementById('hero-headphones');
-const heroAudio = document.getElementById('hero-audio');
-let isMusicPlaying = false;
+/**
+ * Hero hover motion — ported from `mwg_000` (Made With GSAP tutorial 000).
+ * Uses bundled `asset/InertiaPlugin.min.js` + same delta / inertia / rotate timeline pattern.
+ * @see https://madewithgsap.com/effects/tutorial000
+ */
+(function initHeroMwg000Inertia() {
+    const HERO_GSAP_INERTIA_ENABLED = false;
+    if (!HERO_GSAP_INERTIA_ENABLED) return;
+    if (typeof gsap === 'undefined' || typeof InertiaPlugin === 'undefined') return;
 
-function toggleMusic() {
-    if (!heroAudio) return;
+    const root = document.querySelector('.hero-figma__canvas');
+    if (!root) return;
 
-    if (isMusicPlaying) {
-        heroAudio.pause();
-        if (heroHeadphones) heroHeadphones.classList.remove('playing');
-    } else {
-        heroAudio.play().catch(error => {
-            console.log("Audio play failed:", error);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const coarsePointer = window.matchMedia('(pointer: coarse)');
+    if (reducedMotion.matches) return;
+
+    gsap.registerPlugin(InertiaPlugin);
+
+    let oldX = 0;
+    let oldY = 0;
+    let deltaX = 0;
+    let deltaY = 0;
+
+    root.addEventListener('mouseenter', (e) => {
+        oldX = e.clientX;
+        oldY = e.clientY;
+        deltaX = 0;
+        deltaY = 0;
+    });
+
+    root.addEventListener('mousemove', (e) => {
+        deltaX = e.clientX - oldX;
+        deltaY = e.clientY - oldY;
+        oldX = e.clientX;
+        oldY = e.clientY;
+    });
+
+    function playMwgTimeline(target) {
+        gsap.killTweensOf(target);
+
+        const tl = gsap.timeline({
+            onComplete: () => {
+                tl.kill();
+            },
         });
-        if (heroHeadphones) heroHeadphones.classList.add('playing');
-    }
-    isMusicPlaying = !isMusicPlaying;
-}
+        tl.timeScale(1.2);
 
-if (heroHeadphones) {
-    heroHeadphones.addEventListener('click', toggleMusic);
-}
+        tl.to(target, {
+            inertia: {
+                x: {
+                    velocity: deltaX * 30,
+                    end: 0,
+                },
+                y: {
+                    velocity: deltaY * 30,
+                    end: 0,
+                },
+            },
+        });
+        tl.fromTo(
+            target,
+            { rotation: 0 },
+            {
+                duration: 0.4,
+                rotation: (Math.random() - 0.5) * 30,
+                yoyo: true,
+                repeat: 1,
+                ease: 'power1.inOut',
+            },
+            '<'
+        );
+    }
+
+    root.querySelectorAll('.hero-figma__media').forEach((mediaEl) => {
+        mediaEl.addEventListener('mouseenter', () => {
+            if (reducedMotion.matches || coarsePointer.matches) return;
+            playMwgTimeline(mediaEl);
+        });
+    });
+})();
