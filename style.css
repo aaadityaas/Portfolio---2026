@@ -27,8 +27,12 @@
     /* Shared dot/ruler grid — one source of truth for page background + hero */
     --grid-unit: 30px;
     /* Hero zoom factor: render the entire hero (and its dot grid) at this
-       multiple of the Figma 1440 reference size. Keep everything proportional. */
-    --hero-v2-zoom: 1.15;
+       multiple of the Figma 1440 reference size. Both the hero artboard
+       AND the body dot grid multiply by this same scalar (via --grid-scale),
+       so the corners / lines / decorative shapes / pixels always land on
+       dot intersections regardless of zoom. Lower = smaller hero + denser
+       dot pattern; higher = larger hero + sparser dots. */
+    --hero-v2-zoom: 0.9;
     /* --grid-scale is a unitless number. Chrome (at least 132) does not reliably
        resolve `min(1, calc(100vw / 1440px))` (length÷length → number coerced
        inside a nested min) when substituted into downstream calc() — that made
@@ -59,102 +63,368 @@
        so the navbar, which lives outside .hero-v2, can read the same token. */
     --hero-v2-grid-line: #c1c1a5;
 
-    /* ------------------------------------------------------------------
-       Typography system — Bricolage Grotesque (sans) + Libre Baskerville (serif).
-       Applied site-wide except `.hero-v2` and descendants (Figma-specific sizes).
-       Pattern: serif for display/editorial titles; sans for UI, body, labels.
-       ------------------------------------------------------------------ */
+    /* ==================================================================
+       TYPOGRAPHY SYSTEM
+       ------------------------------------------------------------------
+       Role-based scale. ONE source of truth. Pick the role that matches
+       the *purpose* of the text, not the component it's in.
+       Two families:
+         - SERIF (Libre Baskerville) → display & editorial moments
+                                       (hero titles, case-study H1s,
+                                        footer display, page headlines)
+         - SANS  (Bricolage Grotesque) → everything else
+                                       (UI, body, labels, captions, nav)
+       Each role exposes 4 vars: -size, -weight, -line, -track. Use the
+       matching .t-{role} utility class in HTML, OR pull the vars into
+       a component CSS rule. Do NOT introduce new component-named tokens.
+       ------------------------------------------------------------------
+       Quick map (case study & site):
+         hero / footer display     → t-display-xl  (serif)
+         page H1                   → t-display-lg  (serif)
+         case study H1             → t-display-md  (serif)
+         section / modal title     → t-display-sm  (serif)
+         in-content H1 (sans)      → t-h1
+         section header (sans)     → t-h2  (e.g. "Reflections.")
+         sub-section / card title  → t-h3
+         small group title         → t-h4
+         large intro paragraph     → t-lead   (subtitles)
+         oversize body             → t-body-lg (about-page paragraphs)
+         default body              → t-body
+         compact body              → t-body-sm (footer-role, helper)
+         pull quote / testimonial  → t-quote
+         image / helper caption    → t-caption (also review author)
+         UPPERCASE eyebrow         → t-eyebrow (OVERVIEW, TIMELINE…)
+         small UI label            → t-label   (back link, form labels)
+         metadata value            → t-meta    (PLATFORM: Flutter)
+         button / UI action        → t-ui
+         navbar link               → t-nav
+       ================================================================== */
     --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
     --font-serif: 'Libre Baskerville', Georgia, 'Times New Roman', serif;
 
-    --type-weight-regular: 400;
-    --type-weight-medium: 500;
-    --type-weight-semibold: 600;
-    --type-weight-bold: 700;
+    /* Weights — single source */
+    --t-weight-regular:  400;
+    --t-weight-medium:   500;
+    --t-weight-semibold: 600;
+    --t-weight-bold:     700;
 
-    /* Serif — section / page display */
-    --type-serif-display-size: clamp(2.1rem, 3.2vw, 2.75rem);
-    --type-serif-display-weight: var(--type-weight-regular);
-    --type-serif-display-leading: 1.12;
-    --type-serif-display-tracking: -0.02em;
+    /* ── Display (serif) ─────────────────────────────────────────────── */
+    --t-display-xl-size:   clamp(2.7rem, 3.8vw, 4.25rem);
+    --t-display-xl-weight: var(--t-weight-regular);
+    --t-display-xl-line:   1.12;
+    --t-display-xl-track:  -0.04em;
 
-    --type-serif-modal-size: clamp(1.85rem, 2.5vw, 2.25rem);
-    --type-serif-modal-leading: 1.1;
+    --t-display-lg-size:   clamp(2.1rem, 3.2vw, 2.75rem);
+    --t-display-lg-weight: var(--t-weight-regular);
+    --t-display-lg-line:   1.12;
+    --t-display-lg-track:  -0.02em;
 
-    --type-serif-case-title-size: clamp(1.85rem, 2.4vw, 2.35rem);
-    --type-serif-case-title-weight: 300;
-    --type-serif-case-title-leading: 1.15;
+    --t-display-md-size:   clamp(1.85rem, 2.6vw, 2.5rem);
+    --t-display-md-weight: 300;
+    --t-display-md-line:   1.15;
+    --t-display-md-track:  -0.015em;
 
-    --type-serif-footer-display-size: clamp(2.7rem, 3.8vw, 4.25rem);
-    --type-serif-footer-display-leading: 1.12;
-    --type-serif-footer-display-tracking: -0.04em;
+    --t-display-sm-size:   clamp(1.5rem, 2vw, 1.85rem);
+    --t-display-sm-weight: var(--t-weight-regular);
+    --t-display-sm-line:   1.16;
+    --t-display-sm-track:  -0.015em;
 
-    --type-serif-about-size: clamp(2rem, 2.8vw, 2.5rem);
-    --type-serif-about-leading: 1.1;
+    /* ── Headings (sans) ─────────────────────────────────────────────── */
+    --t-h1-size:   clamp(1.75rem, 2.4vw, 2.25rem);
+    --t-h1-weight: var(--t-weight-semibold);
+    --t-h1-line:   1.18;
+    --t-h1-track:  -0.01em;
 
-    /* About page: “I have worked at”, “More of me” — softer than --type-serif-display */
-    --type-serif-about-section-size: clamp(1.45rem, 1.85vw, 1.7rem);
-    --type-serif-about-section-leading: 1.16;
-    --type-serif-about-section-tracking: -0.02em;
+    --t-h2-size:   clamp(1.35rem, 1.85vw, 1.75rem);
+    --t-h2-weight: var(--t-weight-semibold);
+    --t-h2-line:   1.25;
+    --t-h2-track:  -0.005em;
 
-    --type-about-paragraph-size: clamp(1.2rem, 1.65vw, 1.95rem);
-    --type-about-paragraph-leading: 1.32;
-    --type-about-paragraph-weight: var(--type-weight-regular);
+    --t-h3-size:   clamp(1.15rem, 1.4vw, 1.35rem);
+    --t-h3-weight: var(--t-weight-semibold);
+    --t-h3-line:   1.3;
+    --t-h3-track:  0;
 
-    --type-serif-card-title-size: 1.5rem;
-    --type-serif-card-title-leading: 1.2;
+    --t-h4-size:   clamp(1rem, 1.15vw, 1.125rem);
+    --t-h4-weight: var(--t-weight-semibold);
+    --t-h4-line:   1.35;
+    --t-h4-track:  0;
 
-    /* Sans — navigation & UI */
-    --type-nav-size: 1.125rem;
-    --type-nav-weight: var(--type-weight-medium);
-    --type-nav-leading: 1;
+    /* ── Text (sans) ─────────────────────────────────────────────────── */
+    --t-lead-size:   clamp(1.05rem, 1.3vw, 1.35rem);
+    --t-lead-weight: var(--t-weight-regular);
+    --t-lead-line:   1.4;
+    --t-lead-track:  0;
 
-    /* Full-screen mobile menu links (larger tap targets) */
-    --type-mobile-overlay-nav-size: clamp(1.6rem, 5vw, 2rem);
+    --t-body-lg-size:   clamp(1.1rem, 1.4vw, 1.25rem);
+    --t-body-lg-weight: var(--t-weight-regular);
+    --t-body-lg-line:   1.5;
+    --t-body-lg-track:  0;
 
-    --type-heading-size: clamp(1.35rem, 1.65vw, 1.75rem);
-    --type-heading-weight: var(--type-weight-semibold);
-    --type-heading-leading: 1.25;
+    --t-body-size:   1rem;
+    --t-body-weight: var(--t-weight-regular);
+    --t-body-line:   1.6;
+    --t-body-track:  0;
 
-    --type-lead-size: clamp(1.05rem, 1.25vw, 1.35rem);
-    --type-lead-weight: var(--type-weight-regular);
-    --type-lead-leading: 1.4;
+    --t-body-sm-size:   0.9375rem;
+    --t-body-sm-weight: var(--t-weight-regular);
+    --t-body-sm-line:   1.5;
+    --t-body-sm-track:  0;
 
-    --type-body-size: 1rem;
-    --type-body-weight: var(--type-weight-regular);
-    --type-body-leading: 1.55;
+    /* ── Quote / Caption ─────────────────────────────────────────────── */
+    --t-quote-size:   clamp(1.05rem, 1.2vw, 1.25rem);
+    --t-quote-weight: var(--t-weight-medium);
+    --t-quote-line:   1.5;
+    --t-quote-track:  0;
 
-    --type-emphasis-size: clamp(1rem, 1.1vw, 1.125rem);
-    --type-emphasis-weight: var(--type-weight-medium);
-    --type-emphasis-leading: 1.45;
+    --t-caption-size:   0.875rem;
+    --t-caption-weight: var(--t-weight-regular);
+    --t-caption-line:   1.5;
+    --t-caption-track:  0;
 
-    --type-quote-size: clamp(1.05rem, 1.15vw, 1.25rem);
-    --type-quote-weight: var(--type-weight-medium);
-    --type-quote-leading: 1.5;
+    /* ── Labels (UI / metadata) ──────────────────────────────────────── */
+    /* Eyebrow — UPPERCASE small label that introduces a section */
+    --t-eyebrow-size:   0.75rem;
+    --t-eyebrow-weight: var(--t-weight-semibold);
+    --t-eyebrow-line:   1.35;
+    --t-eyebrow-track:  0.08em;
 
-    --type-caption-size: 0.875rem;
-    --type-caption-weight: var(--type-weight-regular);
-    --type-caption-leading: 1.45;
+    /* Label — sentence-case small label (back link, form fields) */
+    --t-label-size:   0.8125rem;
+    --t-label-weight: var(--t-weight-medium);
+    --t-label-line:   1.35;
+    --t-label-track:  0.02em;
 
-    --type-label-size: 0.75rem;
-    --type-label-weight: var(--type-weight-medium);
-    --type-label-tracking: 0.06em;
-    --type-label-leading: 1.35;
+    /* Meta — value text next to an eyebrow (e.g. Flutter, Lead Designer) */
+    --t-meta-size:   0.9375rem;
+    --t-meta-weight: var(--t-weight-medium);
+    --t-meta-line:   1.5;
+    --t-meta-track:  0;
 
-    --type-overline-size: 0.85rem;
-    --type-overline-tracking: 0.04em;
+    /* UI — buttons, inline actions, controls */
+    --t-ui-size:   1rem;
+    --t-ui-weight: var(--t-weight-medium);
+    --t-ui-line:   1.3;
+    --t-ui-track:  0;
 
-    --type-meta-size: 0.9375rem;
-    --type-meta-weight: var(--type-weight-medium);
-    --type-meta-leading: 1.5;
+    /* Nav — site header links */
+    --t-nav-size:   1.125rem;
+    --t-nav-weight: var(--t-weight-medium);
+    --t-nav-line:   1;
+    --t-nav-track:  0;
 
-    --type-ui-size: 1rem;
-    --type-ui-weight: var(--type-weight-medium);
-    --type-ui-leading: 1.3;
+    /* Mobile-overlay nav (larger tap targets) */
+    --t-nav-mobile-size: clamp(1.6rem, 5vw, 2rem);
 
-    /* Mobile: section titles (projects, beyond) */
-    --type-serif-display-size-sm: clamp(1.45rem, 4.5vw, 1.85rem);
+    /* ==================================================================
+       LEGACY ALIASES — DO NOT add new --type-* tokens.
+       These exist so the existing site (homepage, about, play, hero,
+       footer) keeps rendering identically while the case study pages
+       and any new code consume the --t-* tokens above. New components
+       must use --t-* directly.
+       ================================================================== */
+    --type-weight-regular:  var(--t-weight-regular);
+    --type-weight-medium:   var(--t-weight-medium);
+    --type-weight-semibold: var(--t-weight-semibold);
+    --type-weight-bold:     var(--t-weight-bold);
+
+    --type-serif-display-size:    var(--t-display-lg-size);
+    --type-serif-display-weight:  var(--t-display-lg-weight);
+    --type-serif-display-leading: var(--t-display-lg-line);
+    --type-serif-display-tracking: var(--t-display-lg-track);
+
+    --type-serif-modal-size:    var(--t-display-sm-size);
+    --type-serif-modal-leading: var(--t-display-sm-line);
+
+    --type-serif-case-title-size:    var(--t-display-md-size);
+    --type-serif-case-title-weight:  var(--t-display-md-weight);
+    --type-serif-case-title-leading: var(--t-display-md-line);
+
+    --type-serif-footer-display-size:     var(--t-display-xl-size);
+    --type-serif-footer-display-leading:  var(--t-display-xl-line);
+    --type-serif-footer-display-tracking: var(--t-display-xl-track);
+
+    --type-serif-about-size:    var(--t-display-lg-size);
+    --type-serif-about-leading: var(--t-display-lg-line);
+
+    --type-serif-about-section-size:     var(--t-display-sm-size);
+    --type-serif-about-section-leading:  var(--t-display-sm-line);
+    --type-serif-about-section-tracking: var(--t-display-sm-track);
+
+    --type-about-paragraph-size:    var(--t-body-lg-size);
+    --type-about-paragraph-leading: var(--t-body-lg-line);
+    --type-about-paragraph-weight:  var(--t-body-lg-weight);
+
+    --type-serif-card-title-size:    var(--t-display-sm-size);
+    --type-serif-card-title-leading: var(--t-display-sm-line);
+
+    --type-nav-size:    var(--t-nav-size);
+    --type-nav-weight:  var(--t-nav-weight);
+    --type-nav-leading: var(--t-nav-line);
+
+    --type-mobile-overlay-nav-size: var(--t-nav-mobile-size);
+
+    --type-heading-size:    var(--t-h2-size);
+    --type-heading-weight:  var(--t-h2-weight);
+    --type-heading-leading: var(--t-h2-line);
+
+    --type-lead-size:    var(--t-lead-size);
+    --type-lead-weight:  var(--t-lead-weight);
+    --type-lead-leading: var(--t-lead-line);
+
+    --type-body-size:    var(--t-body-size);
+    --type-body-weight:  var(--t-body-weight);
+    --type-body-leading: var(--t-body-line);
+
+    --type-emphasis-size:    var(--t-body-size);
+    --type-emphasis-weight:  var(--t-weight-medium);
+    --type-emphasis-leading: var(--t-body-line);
+
+    --type-quote-size:    var(--t-quote-size);
+    --type-quote-weight:  var(--t-quote-weight);
+    --type-quote-leading: var(--t-quote-line);
+
+    --type-caption-size:    var(--t-caption-size);
+    --type-caption-weight:  var(--t-caption-weight);
+    --type-caption-leading: var(--t-caption-line);
+
+    --type-label-size:     var(--t-eyebrow-size);
+    --type-label-weight:   var(--t-eyebrow-weight);
+    --type-label-tracking: var(--t-eyebrow-track);
+    --type-label-leading:  var(--t-eyebrow-line);
+
+    --type-overline-size:    var(--t-eyebrow-size);
+    --type-overline-tracking: var(--t-eyebrow-track);
+
+    --type-meta-size:    var(--t-meta-size);
+    --type-meta-weight:  var(--t-meta-weight);
+    --type-meta-leading: var(--t-meta-line);
+
+    --type-ui-size:    var(--t-ui-size);
+    --type-ui-weight:  var(--t-ui-weight);
+    --type-ui-leading: var(--t-ui-line);
+
+    --type-serif-display-size-sm:    clamp(1.45rem, 4.5vw, 1.85rem);
     --type-serif-case-title-size-sm: 1.75rem;
+
+    /* ==================================================================
+       CASE STUDY TYPOGRAPHY (--cs-*)
+       ------------------------------------------------------------------
+       Independent, editorial-leaning scale used ONLY by .pajelly-cs-body
+       and its descendants (case study pages: project-1..N.html).
+       Same role shape as --t-*, deliberately separate so the case study
+       reading experience can evolve without disturbing the rest of the
+       site (and vice versa).
+       Differences vs --t-*:
+         · body bumped from 16px → 18px (1.125rem) for long-form comfort
+         · line-heights opened up (body 1.6 → 1.7, quote 1.5 → 1.55)
+         · lead / quote / meta / caption / eyebrow / label all sized up
+           one notch to keep the editorial rhythm
+         · weights still inherit from the global --t-weight-* (universal)
+       Component → role map (consumed by class rules below):
+         .pajelly-title                            → cs-display-md
+         .pajelly-subtitle                         → cs-lead
+         .pajelly-label / .feature-label
+           / .footer-title / .growth-exp__field    → cs-eyebrow
+         .pajelly-desc / .feature-body
+           / .feature-subtitle                     → cs-body
+         .pajelly-val                              → cs-meta
+         .review-quote                             → cs-quote
+         .review-author / .feature-caption
+           / .rating-text                          → cs-caption
+         .feature-title                            → cs-h2
+         .footer-name                              → cs-display-sm
+         .footer-role                              → cs-body-sm
+         .rating-number                            → cs-display-md (bold)
+         .rating-stars                             → cs-h3
+         .cs-back                                  → cs-label
+         .cs-index__link                           → cs-caption
+       ================================================================== */
+    --cs-display-xl-size:   clamp(2.85rem, 4vw, 4.5rem);
+    --cs-display-xl-weight: var(--t-weight-regular);
+    --cs-display-xl-line:   1.1;
+    --cs-display-xl-track:  -0.04em;
+
+    --cs-display-lg-size:   clamp(2.35rem, 3.4vw, 3rem);
+    --cs-display-lg-weight: var(--t-weight-regular);
+    --cs-display-lg-line:   1.12;
+    --cs-display-lg-track:  -0.02em;
+
+    --cs-display-md-size:   clamp(2rem, 2.8vw, 2.75rem);
+    --cs-display-md-weight: 300;
+    --cs-display-md-line:   1.15;
+    --cs-display-md-track:  -0.015em;
+
+    --cs-display-sm-size:   clamp(1.65rem, 2.1vw, 2rem);
+    --cs-display-sm-weight: var(--t-weight-regular);
+    --cs-display-sm-line:   1.18;
+    --cs-display-sm-track:  -0.015em;
+
+    --cs-h1-size:   clamp(1.85rem, 2.5vw, 2.4rem);
+    --cs-h1-weight: var(--t-weight-semibold);
+    --cs-h1-line:   1.2;
+    --cs-h1-track:  -0.01em;
+
+    --cs-h2-size:   clamp(1.5rem, 1.95vw, 1.95rem);
+    --cs-h2-weight: var(--t-weight-semibold);
+    --cs-h2-line:   1.25;
+    --cs-h2-track:  -0.005em;
+
+    --cs-h3-size:   clamp(1.25rem, 1.5vw, 1.45rem);
+    --cs-h3-weight: var(--t-weight-semibold);
+    --cs-h3-line:   1.3;
+    --cs-h3-track:  0;
+
+    --cs-h4-size:   clamp(1.075rem, 1.25vw, 1.225rem);
+    --cs-h4-weight: var(--t-weight-semibold);
+    --cs-h4-line:   1.35;
+    --cs-h4-track:  0;
+
+    --cs-lead-size:   clamp(1.2rem, 1.5vw, 1.55rem);
+    --cs-lead-weight: var(--t-weight-regular);
+    --cs-lead-line:   1.45;
+    --cs-lead-track:  0;
+
+    --cs-body-lg-size:   clamp(1.25rem, 1.55vw, 1.4rem);
+    --cs-body-lg-weight: var(--t-weight-regular);
+    --cs-body-lg-line:   1.6;
+    --cs-body-lg-track:  0;
+
+    /* Body — 18px (1.125rem) editorial reading size */
+    --cs-body-size:   1.125rem;
+    --cs-body-weight: var(--t-weight-regular);
+    --cs-body-line:   1.7;
+    --cs-body-track:  0;
+
+    --cs-body-sm-size:   1rem;
+    --cs-body-sm-weight: var(--t-weight-regular);
+    --cs-body-sm-line:   1.6;
+    --cs-body-sm-track:  0;
+
+    --cs-quote-size:   clamp(1.2rem, 1.5vw, 1.55rem);
+    --cs-quote-weight: var(--t-weight-medium);
+    --cs-quote-line:   1.55;
+    --cs-quote-track:  0;
+
+    --cs-caption-size:   0.9375rem;
+    --cs-caption-weight: var(--t-weight-regular);
+    --cs-caption-line:   1.55;
+    --cs-caption-track:  0;
+
+    --cs-eyebrow-size:   0.8125rem;
+    --cs-eyebrow-weight: var(--t-weight-semibold);
+    --cs-eyebrow-line:   1.35;
+    --cs-eyebrow-track:  0.08em;
+
+    --cs-label-size:   0.875rem;
+    --cs-label-weight: var(--t-weight-medium);
+    --cs-label-line:   1.4;
+    --cs-label-track:  0.02em;
+
+    --cs-meta-size:   1rem;
+    --cs-meta-weight: var(--t-weight-medium);
+    --cs-meta-line:   1.55;
+    --cs-meta-track:  0;
 }
 
 body.night-mode {
@@ -249,6 +519,212 @@ body {
 
 body a, body button, body [role="button"], body input, body textarea, body select {
     cursor: none;
+}
+
+/* =========================================================
+   TYPOGRAPHY UTILITY CLASSES
+   ---------------------------------------------------------
+   Drop-in classes that apply a complete role from the type
+   system. Prefer these in HTML over writing per-component
+   font-* rules. They bind family + size + weight + line +
+   letter-spacing in one go and stay in sync via the --t-*
+   tokens defined in :root.
+
+   When a component needs role typography PLUS extra styling
+   (color, margin, etc.), it can still pull individual
+   --t-{role}-{prop} vars in its CSS rule. Don't introduce
+   new component-named --type-* tokens.
+
+   Class shape:  .t-{role}      → full role
+                 .t-italic      → italic modifier
+                 .t-serif       → switch family to serif
+                 .t-sans        → switch family to sans
+                 .t-muted       → muted color modifier (--text-muted)
+   ========================================================= */
+.t-display-xl,
+.t-display-lg,
+.t-display-md,
+.t-display-sm {
+    font-family: var(--font-serif);
+}
+
+.t-display-xl {
+    font-size: var(--t-display-xl-size);
+    font-weight: var(--t-display-xl-weight);
+    line-height: var(--t-display-xl-line);
+    letter-spacing: var(--t-display-xl-track);
+}
+
+.t-display-lg {
+    font-size: var(--t-display-lg-size);
+    font-weight: var(--t-display-lg-weight);
+    line-height: var(--t-display-lg-line);
+    letter-spacing: var(--t-display-lg-track);
+}
+
+.t-display-md {
+    font-size: var(--t-display-md-size);
+    font-weight: var(--t-display-md-weight);
+    line-height: var(--t-display-md-line);
+    letter-spacing: var(--t-display-md-track);
+}
+
+.t-display-sm {
+    font-size: var(--t-display-sm-size);
+    font-weight: var(--t-display-sm-weight);
+    line-height: var(--t-display-sm-line);
+    letter-spacing: var(--t-display-sm-track);
+}
+
+.t-h1,
+.t-h2,
+.t-h3,
+.t-h4,
+.t-lead,
+.t-body-lg,
+.t-body,
+.t-body-sm,
+.t-quote,
+.t-caption,
+.t-eyebrow,
+.t-label,
+.t-meta,
+.t-ui,
+.t-nav {
+    font-family: var(--font-sans);
+}
+
+.t-h1 {
+    font-size: var(--t-h1-size);
+    font-weight: var(--t-h1-weight);
+    line-height: var(--t-h1-line);
+    letter-spacing: var(--t-h1-track);
+}
+
+.t-h2 {
+    font-size: var(--t-h2-size);
+    font-weight: var(--t-h2-weight);
+    line-height: var(--t-h2-line);
+    letter-spacing: var(--t-h2-track);
+}
+
+.t-h3 {
+    font-size: var(--t-h3-size);
+    font-weight: var(--t-h3-weight);
+    line-height: var(--t-h3-line);
+    letter-spacing: var(--t-h3-track);
+}
+
+.t-h4 {
+    font-size: var(--t-h4-size);
+    font-weight: var(--t-h4-weight);
+    line-height: var(--t-h4-line);
+    letter-spacing: var(--t-h4-track);
+}
+
+.t-lead {
+    font-size: var(--t-lead-size);
+    font-weight: var(--t-lead-weight);
+    line-height: var(--t-lead-line);
+    letter-spacing: var(--t-lead-track);
+}
+
+.t-body-lg {
+    font-size: var(--t-body-lg-size);
+    font-weight: var(--t-body-lg-weight);
+    line-height: var(--t-body-lg-line);
+    letter-spacing: var(--t-body-lg-track);
+}
+
+.t-body {
+    font-size: var(--t-body-size);
+    font-weight: var(--t-body-weight);
+    line-height: var(--t-body-line);
+    letter-spacing: var(--t-body-track);
+}
+
+.t-body-sm {
+    font-size: var(--t-body-sm-size);
+    font-weight: var(--t-body-sm-weight);
+    line-height: var(--t-body-sm-line);
+    letter-spacing: var(--t-body-sm-track);
+}
+
+.t-quote {
+    font-size: var(--t-quote-size);
+    font-weight: var(--t-quote-weight);
+    line-height: var(--t-quote-line);
+    letter-spacing: var(--t-quote-track);
+}
+
+.t-caption {
+    font-size: var(--t-caption-size);
+    font-weight: var(--t-caption-weight);
+    line-height: var(--t-caption-line);
+    letter-spacing: var(--t-caption-track);
+}
+
+.t-eyebrow {
+    font-size: var(--t-eyebrow-size);
+    font-weight: var(--t-eyebrow-weight);
+    line-height: var(--t-eyebrow-line);
+    letter-spacing: var(--t-eyebrow-track);
+    text-transform: uppercase;
+}
+
+.t-label {
+    font-size: var(--t-label-size);
+    font-weight: var(--t-label-weight);
+    line-height: var(--t-label-line);
+    letter-spacing: var(--t-label-track);
+}
+
+.t-meta {
+    font-size: var(--t-meta-size);
+    font-weight: var(--t-meta-weight);
+    line-height: var(--t-meta-line);
+    letter-spacing: var(--t-meta-track);
+}
+
+.t-ui {
+    font-size: var(--t-ui-size);
+    font-weight: var(--t-ui-weight);
+    line-height: var(--t-ui-line);
+    letter-spacing: var(--t-ui-track);
+}
+
+.t-nav {
+    font-size: var(--t-nav-size);
+    font-weight: var(--t-nav-weight);
+    line-height: var(--t-nav-line);
+    letter-spacing: var(--t-nav-track);
+}
+
+/* Family / style modifiers — combine with any role above */
+.t-serif  { font-family: var(--font-serif); }
+.t-sans   { font-family: var(--font-sans); }
+.t-italic { font-style: italic; }
+.t-muted  { color: var(--text-muted); }
+
+/* =========================================================
+   PAGE TRANSITIONS — FULL-PAGE FADE
+   ---------------------------------------------------------
+   Lightweight cross-document fade. Every navigation between
+   the homepage and a case study (and back) plays as:
+       1. Body fades to 0 over the current theme's bg colour
+       2. Browser navigates (hidden under the bg colour)
+       3. New page mounts with body at 0, fades back to 1
+
+   The .cs-incoming class is set by a tiny inline <script> in
+   each page's <head> when sessionStorage flags an incoming
+   navigation, so body is hidden BEFORE first paint and there
+   is no flash of content. The same head script also pins the
+   <html> background to the current theme colour (read from
+   localStorage) so the in-between moment matches the theme.
+   ========================================================= */
+
+html.cs-incoming body {
+    opacity: 0;
 }
 
 /* =========================================================
@@ -741,6 +1217,12 @@ body.night-mode .night-overlay {
     left: 169px;
     width: var(--hero-v2-content-w);
     height: var(--hero-v2-content-h);
+    pointer-events: none;
+}
+
+/* Re-enable pointer events only on the interactive tag pill inside content */
+.hero-v2__content .hero-v2__tag {
+    pointer-events: auto;
 }
 
 /* "Hi, I'm Aditya" pill ----------------------------------------------------- */
@@ -896,6 +1378,89 @@ body.night-mode .night-overlay {
     transform-origin: center center;
 }
 
+/* Dappled-light shader overlay --------------------------------------------- */
+/* Wide transparent overlay anchored to the right of the hero. WebGL canvas
+   is driven by asset/dappled-light-shader.js; only the tree shadow renders,
+   the rest of the canvas is fully transparent so it falls over the hero
+   content like real dappled light. Sits above the right-side decorative
+   pixels via z-index, beneath the grid corners (z:4). */
+.hero-v2__dappled {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 70vw;
+    height: 600px;
+    /* overflow visible so falling leaves can drift past the strip's bottom
+       into the page below. The canvas itself stays bounded by its CSS box. */
+    overflow: visible;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.hero-v2__dappled-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Opacity moved off the wrapper so falling leaves (siblings of this canvas)
+       don't inherit the dim. Visual effect on the shader is identical. */
+    opacity: 0.15;
+    /* Critical: the wrapper is pointer-events: none, but in HTML that does
+       NOT inherit to children — a default <canvas> has pointer-events: auto
+       and would absorb hover/clicks for anything geometrically beneath it
+       (e.g. project card-1 sits in the upper-left, partially under the
+       70vw-wide shader strip). Explicitly opt the canvas out. */
+    pointer-events: none;
+}
+
+/* Dark mode bumps canvas opacity so the procedural moon backlight registers
+   brightly behind the now-pitch-black tree silhouette. */
+body.night-mode .hero-v2__dappled-canvas {
+    opacity: 0.85;
+}
+
+/* Falling leaves — DOM <div> particles authored by asset/leaf-fall.js. SVGs
+   in asset/leaves/ are white silhouettes with fill-opacity 0.38 + built-in
+   Gaussian blur baked in; we use them as `mask-image` so CSS owns the color
+   (light/dark themes can swap tint without touching the assets). The mask
+   alpha already encodes the 0.38 base + soft blur, so the visible look is
+   identical to rendering the SVG directly. */
+.dappled-leaf {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--leaf-w, 32px);
+    height: var(--leaf-h, 40px);
+    pointer-events: none;
+    user-select: none;
+    /* Light theme tint — mirrors the GLSL u_shadowTint (#403E39). */
+    background-color: #403E39;
+    -webkit-mask-image: var(--leaf-mask);
+            mask-image: var(--leaf-mask);
+    -webkit-mask-size: contain;
+            mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+            mask-position: center;
+    transform: translate(var(--x, 0px), var(--y, 0px)) rotate(var(--r, 0deg));
+    opacity: var(--o, 0);
+    will-change: transform, opacity;
+}
+
+/* Dark theme tint — pitch black silhouette, mirrors the GLSL u_shadowTint
+   dark value (#000000). */
+body.night-mode .dappled-leaf {
+    background-color: #000000;
+}
+
+@media (max-width: 1024px) {
+    .hero-v2__dappled { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dappled-leaf { display: none; }
+}
+
 /* Grid crosshair overlay (ruler style — drawn over the container panel) --- */
 .hero-v2__grid {
     position: absolute;
@@ -1002,6 +1567,17 @@ body.night-mode .night-overlay {
     width: 30px;
     height: 30px;
     background: var(--hero-v2-pixel);
+    pointer-events: auto;
+    z-index: 3;
+    cursor: none;
+}
+
+/* Invisible hit-area that expands the hover target without affecting layout */
+.hero-v2__pixel::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+    pointer-events: auto;
 }
 
 /* Left cluster — Figma coordinates on the 1440 canvas (hero frame origin) */
@@ -1020,6 +1596,14 @@ body.night-mode .night-overlay {
 .hero-v2__pixel--r4 { left: 1189px; top: 328px; }
 .hero-v2__pixel--r5 { left: 1159px; top: 268px; opacity: 0.55; }
 .hero-v2__pixel--r6 { left: 1099px; top: 358px; opacity: 0.4; }
+
+/* Burst pixels spawned on hover (see initHeroPixelPop in script.js) */
+.hero-v2__pixel-burst {
+    position: absolute;
+    pointer-events: none;
+    will-change: transform, opacity;
+    z-index: 2;
+}
 
 /* Scale the whole artboard to fit the viewport (design ref: 1440×776).
    Driven by the shared --grid-scale so body dots + hero ruler move in lockstep. */
@@ -1744,7 +2328,7 @@ body.night-mode .footer-wordmark img {
 
 .footer-meta {
     width: min(100%, 835px);
-    margin: 12px auto 0;
+    margin: 28px auto 0;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -1787,6 +2371,59 @@ body.night-mode .footer-wordmark img {
     display: block;
 }
 
+/* =========================================================
+   Grassland strip — pixel-art banner pinned to the very end
+   of the footer. Sits outside `.container` so it can render
+   at native pixel size and overflow horizontally on narrow
+   viewports (html already has overflow-x:hidden).
+   ========================================================= */
+.footer-grassland {
+    margin-top: clamp(40px, 6vw, 72px);
+    margin-bottom: -48px;
+    display: flex;
+    justify-content: center;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.footer-grassland img {
+    display: block;
+    flex-shrink: 0;
+    width: 1600px;
+    height: auto;
+    max-width: none;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    user-select: none;
+    transform: translateX(140px);
+}
+
+/* Pixel cloud clusters — positioned on the left and right edges
+   of the page, just above the grassland strip. Anchored to the
+   `.site-footer` (which is position:relative) so they follow
+   the footer regardless of the wordmark height above it. */
+.footer-cloud {
+    position: absolute;
+    bottom: 280px;
+    height: auto;
+    pointer-events: none;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    user-select: none;
+    z-index: 1;
+}
+
+.footer-cloud--right {
+    right: 0;
+    width: 240px;
+}
+
+.footer-cloud--left {
+    left: 0;
+    bottom: 240px;
+    width: 176px;
+}
+
 /* Lottiemon Wrapper Mascot (Commented Out)
 .wrapper-mascot {
     position: absolute;
@@ -1807,7 +2444,54 @@ body.night-mode .footer-wordmark img {
     gap: clamp(24px, 3vw, 40px);
     height: auto;
     margin-top: 0;
-    position: static;
+    position: relative;
+}
+
+/* Transparent WebGL canvas BEHIND the bento cards. asset/work-shader.js paints
+   one shader plane per .work-card, masked to the cards' 4px border-radius via
+   an SDF. The cards (later DOM siblings, each with isolation: isolate) render
+   above this canvas — but once `body.webgl-cards` flips on, they go transparent
+   and hide their PNG + meta so the shader becomes the card's visual. */
+.work-shader-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    display: block;
+}
+
+/* Activated by asset/work-shader.js once the first texture loads. Strips the
+   card's PNG, gradient, text labels, drop shadow, and rim highlight — leaving
+   nothing but the shader visible inside the card box. */
+body.webgl-cards #work-wall .work-card {
+    background: transparent;
+    box-shadow: none;
+}
+
+body.webgl-cards #work-wall .work-card::after {
+    display: none;
+}
+
+body.webgl-cards #work-wall .card-content {
+    display: none;
+}
+
+body.webgl-cards #work-wall .work-card__meta {
+    display: none;
+}
+
+body.webgl-cards #work-wall .work-card:hover,
+body.webgl-cards #work-wall .work-card.is-active,
+body.webgl-cards #work-wall .work-card:focus-visible {
+    box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .work-shader-canvas {
+        display: none;
+    }
 }
 
 .work-card {
@@ -1849,47 +2533,494 @@ body.night-mode .footer-wordmark img {
     /* Height becomes 0.8W (Total Height Right = 1.6W + 0.8W = 2.4W) */
 }
 
-/* Play Page Dense Grid */
+#work-wall .work-card {
+    border-radius: 4px;
+    background: #0f0f0d;
+    box-shadow: 0 20px 48px rgba(49, 36, 20, 0.1);
+    isolation: isolate;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#work-wall .work-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+    z-index: 3;
+}
+
+#work-wall .card-content {
+    transform: scale(1.02);
+    transform-origin: center;
+    transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.55s ease;
+}
+
+#work-wall .card-content::after {
+    background: linear-gradient(180deg, rgba(13, 16, 22, 0.02) 0%, rgba(13, 16, 22, 0.12) 48%, rgba(13, 16, 22, 0.78) 100%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    opacity: 0.24;
+    transition: opacity 0.45s ease;
+}
+
+#work-wall .work-card__meta {
+    position: absolute;
+    left: clamp(20px, 3vw, 34px);
+    right: clamp(20px, 3vw, 34px);
+    bottom: clamp(18px, 3vw, 32px);
+    display: grid;
+    gap: 8px;
+    z-index: 2;
+    color: #fff;
+    pointer-events: none;
+}
+
+#work-wall .work-card__meta > * {
+    margin: 0;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: transform 0.58s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.32s ease;
+}
+
+#work-wall .work-card__meta > :nth-child(2) {
+    transition-delay: 0.04s;
+}
+
+#work-wall .work-card__meta > :nth-child(3) {
+    transition-delay: 0.08s;
+}
+
+#work-wall .work-card__label {
+    font-family: var(--font-sans);
+    font-size: 0.76rem;
+    font-weight: var(--type-weight-semibold);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.76;
+}
+
+#work-wall .work-card__title {
+    font-family: var(--font-sans);
+    font-size: clamp(1.8rem, 3.1vw, 3.5rem);
+    font-weight: var(--type-weight-medium);
+    line-height: 0.94;
+    letter-spacing: -0.07em;
+    max-width: 11ch;
+    text-wrap: balance;
+    text-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+#work-wall .work-card__desc {
+    max-width: 34ch;
+    font-family: var(--font-sans);
+    font-size: clamp(0.94rem, 1vw, 1.02rem);
+    font-weight: var(--type-weight-regular);
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    opacity: 0.9;
+}
+
+#work-wall .card-2 .work-card__title,
+#work-wall .card-4 .work-card__title {
+    font-size: clamp(1.55rem, 2.5vw, 2.6rem);
+    max-width: 9ch;
+}
+
+#work-wall .card-2 .work-card__desc {
+    max-width: 20ch;
+}
+
+/* Home project cards: no in-card hover affordance. The project title is
+   surfaced via the custom cursor label on hover instead (see script.js).
+   Keyboard focus keeps a subtle ring + meta reveal for accessibility. */
+#work-wall .work-card:focus-visible {
+    outline: 2px solid rgba(88, 124, 228, 0.55);
+    outline-offset: 4px;
+}
+
+#work-wall .work-card:focus-visible .work-card__meta > * {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* =========================================================
+   PLAY PAGE — SCRAPBOOK CANVAS
+   ---------------------------------------------------------
+   The grid is a fixed-aspect *canvas* with absolutely-
+   positioned children (cards + sticky notes), each at a
+   small rotation so the page reads like a pinboard. Per-
+   card position lives in .play-card-N rules below; rotation
+   is exposed as the --rot custom property so :hover can
+   compose its own scale on top without losing the rotation.
+   On narrow viewports the canvas collapses to a vertical
+   stack (see the @media block at the end of this section).
+   ========================================================= */
 .play-bento-grid {
-    columns: 3;
-    column-gap: clamp(12px, 2vw, 16px);
+    position: relative;
+    width: 100%;
+    max-width: 1180px;
+    margin: 32px auto 0;
+    aspect-ratio: 1180 / 1080;
+    /* reset legacy column flow */
+    columns: auto;
+    column-gap: 0;
     height: auto;
 }
 
 .play-bento-grid .work-card {
-    break-inside: avoid;
-    margin-bottom: 16px;
-    display: inline-block;
+    position: absolute;
+    margin: 0;
+    /* Rotation per card; --hover-scale composes on top so hover
+       can scale up without losing the tilt. */
+    --rot: 0deg;
+    --hover-scale: 1;
+    transform: rotate(var(--rot)) scale(var(--hover-scale));
+    transform-origin: center center;
+    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.4s ease,
+                filter 0.4s ease,
+                box-shadow 0.4s ease;
+    will-change: transform, opacity;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fdfaf3;
+    box-shadow: 0 14px 32px rgba(40, 28, 16, 0.14),
+                0 4px 10px rgba(40, 28, 16, 0.08);
+    cursor: pointer;
+    aspect-ratio: auto;
+}
+
+.play-bento-grid .work-card .card-content {
     width: 100%;
-    cursor: default;
+    height: 100%;
+    border-radius: inherit;
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
 }
 
-.play-card-1 {
-    aspect-ratio: 4/5;
+.play-bento-grid .work-card video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-.play-card-2 {
-    aspect-ratio: 1/1;
+/* Polaroid frame: thicker bottom border, off-white card stock.
+   The inner content uses an aspect ratio to keep the photo area
+   consistent across the various card sizes. */
+.play-bento-grid .work-card[data-polaroid] {
+    background: #fdfaf3;
+    padding: 12px 12px 32px;
+    border-radius: 2px;
+    box-shadow: 0 22px 44px rgba(40, 28, 16, 0.18),
+                0 4px 10px rgba(40, 28, 16, 0.08);
 }
 
-.play-card-3 {
-    aspect-ratio: 4/3;
+.play-bento-grid .work-card[data-polaroid] .card-content {
+    border-radius: 1px;
+    aspect-ratio: 1;
 }
 
-.play-card-4 {
-    aspect-ratio: 3/4;
+/* ── Per-card position + rotation. All values are percentages
+   of the canvas, which means the layout scales fluidly with
+   the container width. */
+.play-card-1 { --rot: -3deg; top: 4%;  left: 28%; width: 28%; aspect-ratio: 4 / 5; }
+.play-card-2 { --rot: 5deg;  top: 3%;  left: 62%; width: 18%; aspect-ratio: 1 / 1; }
+.play-card-3 { --rot: -4deg; top: 30%; left: 60%; width: 20%; aspect-ratio: 4 / 5; z-index: 3; }
+.play-card-4 { --rot: 4deg;  top: 30%; left: 5%;  width: 18%; aspect-ratio: 1 / 1; }
+.play-card-5 { --rot: -6deg; top: 50%; left: 32%; width: 18%; aspect-ratio: 4 / 5; z-index: 3; }
+.play-card-6 { --rot: 2deg;  top: 65%; left: 6%;  width: 28%; aspect-ratio: 4 / 3; }
+.play-card-7 { --rot: -2deg; top: 56%; left: 64%; width: 24%; aspect-ratio: 4 / 5; }
+
+/* ── Sticky notes ── */
+/* Decorative paper-square text labels. pointer-events:none so
+   they never intercept clicks on cards behind them. */
+.play-sticky {
+    position: absolute;
+    padding: 18px 20px;
+    font-family: 'Patrick Hand', 'Caveat', cursive;
+    font-size: clamp(0.95rem, 1.25vw, 1.2rem);
+    line-height: 1.3;
+    color: #1f1d28;
+    background: #fbc8db;
+    box-shadow: 0 12px 24px rgba(40, 28, 16, 0.14);
+    pointer-events: none;
+    user-select: none;
+    --rot: 0deg;
+    transform: rotate(var(--rot));
+    transform-origin: center center;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
 }
 
-.play-card-5 {
-    aspect-ratio: 1/1;
+.play-sticky em {
+    font-style: italic;
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
 }
 
-.play-card-6 {
-    aspect-ratio: 4/5;
+.play-sticky--pink   { background: #f9c1d7; }
+.play-sticky--yellow { background: #ffe39e; }
+.play-sticky--mint   { background: #c6efc8; }
+
+.play-sticky-1 { --rot: -5deg; top: 10%; left: 4%;  width: 18%; aspect-ratio: 1 / 1.1; font-size: clamp(1.1rem, 1.45vw, 1.45rem); }
+.play-sticky-2 { --rot: 8deg;  top: 24%; left: 48%; width: 11%; aspect-ratio: 1 / 1.15; font-size: clamp(0.95rem, 1.2vw, 1.2rem); padding: 14px 14px; }
+.play-sticky-3 { --rot: 3deg;  top: 70%; left: 38%; width: 24%; aspect-ratio: 1 / 0.7;  font-size: clamp(1.05rem, 1.4vw, 1.4rem); }
+
+/* ── Hover container transform ── */
+/* Hover unwinds the rotation on the focused card and gently dims
+   the rest. We keep this strictly :hover-driven so pointer-only
+   devices get the effect and touch devices stay calm. */
+@media (hover: hover) and (pointer: fine) {
+    .play-bento-grid:hover .work-card:not(:hover) {
+        --hover-scale: 0.97;
+        opacity: 0.6;
+        filter: saturate(0.85);
+    }
+
+    .play-bento-grid:hover .play-sticky {
+        opacity: 0.75;
+        filter: saturate(0.9);
+        transition: opacity 0.4s ease, filter 0.4s ease;
+    }
+
+    .play-bento-grid .work-card:hover {
+        --rot: 0deg;
+        --hover-scale: 1.05;
+        z-index: 8;
+        opacity: 1;
+        filter: none;
+        box-shadow: 0 30px 60px rgba(40, 28, 16, 0.25);
+    }
 }
 
-.play-card-7 {
-    aspect-ratio: 4/3;
+/* While the popout is open we suppress the hover transform on the source card
+   (it has its own FLIP animation running) and keep its siblings calm. */
+.play-bento-grid.is-popout-open .work-card,
+.play-bento-grid.is-popout-open:hover .work-card:not(:hover) {
+    --hover-scale: 1;
+    opacity: 1;
+    filter: none;
+}
+
+.play-bento-grid.is-popout-open .play-sticky {
+    opacity: 1;
+    filter: none;
+}
+
+.play-bento-grid [data-play-card].is-popout-source {
+    visibility: hidden;
+}
+
+/* Dark-mode tone tweak for sticky notes (keep them readable on
+   the warm-night background without losing their pop). */
+body.night-mode .play-sticky {
+    color: #1a1a1a;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+body.night-mode .play-bento-grid .work-card,
+body.night-mode .play-bento-grid .work-card[data-polaroid] {
+    background: #f5efe2;
+}
+
+/* ── Mobile: collapse the canvas to a single-column stack ── */
+/* Below 760px we drop absolute positioning entirely and let the
+   cards + sticky notes flow vertically. Rotations are reduced
+   so nothing horizontally overflows the viewport. */
+@media (max-width: 760px) {
+    .play-bento-grid {
+        aspect-ratio: auto;
+        max-width: 420px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        padding: 8px;
+    }
+
+    .play-bento-grid .work-card,
+    .play-bento-grid .play-sticky {
+        position: relative;
+        top: auto !important;
+        left: auto !important;
+        width: 88% !important;
+        max-width: 360px;
+    }
+
+    /* Slightly smaller tilts on mobile so cards never clip. */
+    .play-card-1 { --rot: -2deg; }
+    .play-card-2 { --rot: 2deg; }
+    .play-card-3 { --rot: -2deg; }
+    .play-card-4 { --rot: 2deg; }
+    .play-card-5 { --rot: -2deg; }
+    .play-card-6 { --rot: 1.5deg; }
+    .play-card-7 { --rot: -1.5deg; }
+    .play-sticky-1 { --rot: -3deg; }
+    .play-sticky-2 { --rot: 4deg; }
+    .play-sticky-3 { --rot: 2deg; }
+
+    .play-sticky {
+        aspect-ratio: 1 / 0.55;
+        text-align: center;
+        justify-content: center;
+    }
+
+    /* Reorder so sticky notes break up the card flow nicely. */
+    .play-sticky-1 { order: 1; }
+    .play-card-1   { order: 2; }
+    .play-card-2   { order: 3; }
+    .play-sticky-2 { order: 4; }
+    .play-card-3   { order: 5; }
+    .play-card-4   { order: 6; }
+    .play-card-5   { order: 7; }
+    .play-sticky-3 { order: 8; }
+    .play-card-6   { order: 9; }
+    .play-card-7   { order: 10; }
+}
+
+/* ===== Play Card Popout (FLIP) =====
+   Wraps the cloned card while it's animated from the grid rect to the centered
+   stage. .play-popout__stage is the *target* rect; the JS sets it to a tall
+   centered region, measures it, and animates the cloned card from the source
+   card's bounding rect into this rect. */
+.play-popout {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+}
+
+.play-popout.is-open {
+    pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.4s ease, visibility 0s linear 0s;
+}
+
+.play-popout__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 15, 13, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    cursor: pointer;
+}
+
+.play-popout__stage {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(58vw, 520px);
+    height: min(78vh, 720px);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.play-popout__caption {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(28px, 6vh, 64px);
+    transform: translateX(-50%);
+    width: min(560px, 80vw);
+    text-align: center;
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.45s ease 0.2s, transform 0.45s ease 0.2s;
+    transform: translate(-50%, 12px);
+}
+
+.play-popout.is-open .play-popout__caption {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.play-popout__title {
+    margin: 0 0 8px;
+    font-family: 'Libre Baskerville', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
+    line-height: 1.2;
+    color: #fff;
+}
+
+.play-popout__detail {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.78);
+    letter-spacing: 0.01em;
+}
+
+.play-popout__close {
+    position: absolute;
+    top: clamp(16px, 3vw, 28px);
+    right: clamp(16px, 3vw, 28px);
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.play-popout__close:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: scale(1.06);
+}
+
+/* The cloned card is fixed-positioned and animated via inline styles by
+   script.js. Keeping its visual chrome (radius, shadow) flush with the live
+   .work-card. */
+.play-popout__clone {
+    position: fixed;
+    margin: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #0f0f0d;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.32);
+    transform-origin: top left;
+    will-change: top, left, width, height;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.play-popout__clone .card-content {
+    border-radius: inherit;
+    width: 100%;
+    height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .play-bento-grid [data-play-card],
+    .play-popout,
+    .play-popout__caption,
+    .play-popout__clone {
+        transition-duration: 0s !important;
+    }
 }
 
 
@@ -1924,6 +3055,49 @@ body.night-mode .footer-wordmark img {
     -webkit-backdrop-filter: blur(2px);
     pointer-events: none;
     z-index: 1;
+}
+
+@media (hover: none), (max-width: 900px) {
+    #work-wall .work-card {
+        transform: none;
+    }
+
+    #work-wall .card-content {
+        transform: scale(1.04);
+    }
+
+    #work-wall .card-content::after {
+        opacity: 0.94;
+    }
+
+    #work-wall .work-card__meta > * {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    #work-wall .work-card__title {
+        font-size: clamp(1.6rem, 7vw, 2.6rem);
+        max-width: 10ch;
+    }
+
+    #work-wall .card-2 .work-card__title,
+    #work-wall .card-4 .work-card__title {
+        max-width: 11ch;
+    }
+
+    #work-wall .work-card__desc,
+    #work-wall .card-2 .work-card__desc {
+        max-width: 30ch;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #work-wall .work-card,
+    #work-wall .card-content,
+    #work-wall .card-content::after,
+    #work-wall .work-card__meta > * {
+        transition: none;
+    }
 }
 
 
@@ -2059,6 +3233,18 @@ body.night-mode .work-card {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
+body.night-mode #work-wall .work-card {
+    box-shadow: 0 20px 52px rgba(0, 0, 0, 0.28);
+}
+
+body.night-mode #work-wall .work-card::after {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+body.night-mode #work-wall .card-content::after {
+    background: linear-gradient(180deg, rgba(5, 7, 10, 0.03) 0%, rgba(5, 7, 10, 0.16) 42%, rgba(5, 7, 10, 0.86) 100%);
+}
+
 body.night-mode .grain {
     filter: invert(1) opacity(0.5);
 }
@@ -2160,9 +3346,8 @@ body.night-mode .about-visual-caption {
 }
 
 @media (max-width: 1024px) {
-    .play-bento-grid {
-        columns: 2;
-    }
+    /* (The play page now uses an absolute scrapbook canvas with its
+       own responsive collapse below 760px — no column override here.) */
 
     .hero-section--figma {
         min-height: auto;
@@ -2173,7 +3358,9 @@ body.night-mode .about-visual-caption {
         transform: scale(1.05);
     }
 
-    .work-card {
+    /* Reset only the HOME page work cards — the play page keeps its
+       absolute scrapbook layout until the 760px collapse below. */
+    #work-wall .work-card {
         width: 100% !important;
         left: 0 !important;
         right: auto !important;
@@ -2181,10 +3368,6 @@ body.night-mode .about-visual-caption {
         top: 0 !important;
         margin-bottom: 0;
         transform: none !important;
-    }
-
-    .play-bento-grid .work-card {
-        margin-bottom: 16px;
     }
 
     /* Retain bento grid logic on tablet */
@@ -2585,13 +3768,17 @@ body.night-mode .modal-cta {
    CASE STUDY STYLES (PAJELLY.IO REPLICA)
    ========================================================= */
 
+/* Case study root — sets the page-wide editorial body default. All
+   case-study text classes consume --cs-* tokens so this scope is fully
+   independent of the rest of the site's typography. */
 .pajelly-cs-body {
     background-color: #FFFFFF;
     color: #57595C;
     font-family: var(--font-sans);
-    font-size: var(--type-body-size);
-    font-weight: var(--type-body-weight);
-    line-height: var(--type-body-leading);
+    font-size: var(--cs-body-size);
+    font-weight: var(--cs-body-weight);
+    line-height: var(--cs-body-line);
+    letter-spacing: var(--cs-body-track);
     -webkit-font-smoothing: antialiased;
     margin: 0;
     padding: 0;
@@ -2651,7 +3838,7 @@ body.night-mode::before {
     padding: 80px 24px 120px 24px;
 }
 
-/* Back link — sits above the case study title */
+/* Back link — sits above the case study title. Role: cs-label. */
 .cs-back {
     display: inline-flex;
     align-items: center;
@@ -2659,8 +3846,10 @@ body.night-mode::before {
     color: #989FA3;
     text-decoration: none;
     font-family: var(--font-sans);
-    font-size: calc(var(--type-caption-size) * 0.98);
-    font-weight: var(--type-weight-medium);
+    font-size: var(--cs-label-size);
+    font-weight: var(--cs-label-weight);
+    line-height: var(--cs-label-line);
+    letter-spacing: var(--cs-label-track);
     letter-spacing: 0.01em;
     margin-bottom: 24px;
     transition: color 0.25s ease;
@@ -2685,13 +3874,15 @@ body.night-mode::before {
 }
 
 /* Growth experiments case study (project-2) */
+/* Field-label inside a growth-exp prose block ("Objective", "Outcome").
+   Role: cs-eyebrow.                                                     */
 .growth-exp__field {
     display: block;
     font-family: var(--font-sans);
-    font-size: var(--type-label-size);
-    font-weight: var(--type-weight-semibold);
-    letter-spacing: var(--type-label-tracking);
-    line-height: var(--type-label-leading);
+    font-size: var(--cs-eyebrow-size);
+    font-weight: var(--cs-eyebrow-weight);
+    line-height: var(--cs-eyebrow-line);
+    letter-spacing: var(--cs-eyebrow-track);
     text-transform: uppercase;
     color: #989FA3;
     margin-bottom: 0.4rem;
@@ -2766,14 +3957,16 @@ body.night-mode::before {
     padding-top: 8px;
 }
 
+/* Sticky sidebar nav links inside case studies. Role: cs-caption. */
 .cs-index__link {
     font-family: var(--font-sans);
-    font-size: calc(var(--type-caption-size) * 0.94);
-    font-weight: var(--type-weight-regular);
+    font-size: var(--cs-caption-size);
+    font-weight: var(--cs-caption-weight);
+    line-height: var(--cs-caption-line);
+    letter-spacing: var(--cs-caption-track);
     color: #B5BABE;
     text-decoration: none;
     transition: color 0.25s ease;
-    line-height: var(--type-caption-leading);
 }
 
 .cs-index__link:hover {
@@ -2782,7 +3975,7 @@ body.night-mode::before {
 
 .cs-index__link.is-active {
     color: #FF6B00;
-    font-weight: var(--type-weight-medium);
+    font-weight: var(--cs-label-weight);
 }
 
 .cs-content {
@@ -2813,6 +4006,572 @@ body.night-mode::before {
     }
 }
 
+/* =========================================================
+   CASE STUDY SECTION COMPONENTS
+   ---------------------------------------------------------
+   Atomic building blocks shared by all case studies, mapped
+   to the JSON section types:
+     hero              → .pajelly-cs-hero-img + .pajelly-cs-header
+     text-block        → .cs-section + .cs-section__label/body
+     text-media        → .cs-text-media (--text-left / --text-right)
+     media-comparison  → .cs-media-comparison (before / after)
+     media-grid        → .cs-media-grid (--cols-2 / --cols-3 / --cols-4)
+     stats             → .cs-stats + .cs-stat
+     media-full        → .cs-media-full (full bleed inside .cs-content)
+   All consume --cs-* typography tokens and the standard
+   case study spacing scale.
+   ========================================================= */
+
+/* Section wrapper used by every JSON section — gives consistent
+   vertical rhythm and a hookable id for sidebar anchors. */
+.cs-section {
+    margin-bottom: 88px;
+    scroll-margin-top: 96px;
+}
+.cs-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Uppercase eyebrow label (e.g. "OVERVIEW", "BRAND IDENTITY"). */
+.cs-section__label {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--cs-eyebrow-size);
+    font-weight: var(--cs-eyebrow-weight);
+    line-height: var(--cs-eyebrow-line);
+    letter-spacing: var(--cs-eyebrow-track);
+    text-transform: uppercase;
+    color: #989FA3;
+    margin: 0 0 16px;
+}
+
+/* Section sub-headline (serif). One per section, optional. */
+.cs-section__headline {
+    font-family: var(--font-serif);
+    font-size: var(--cs-display-sm-size);
+    font-weight: var(--cs-display-sm-weight);
+    line-height: var(--cs-display-sm-line);
+    letter-spacing: var(--cs-display-sm-track);
+    color: #1f1f1f;
+    margin: 0 0 24px;
+}
+
+/* Body paragraph. Repeats vertically with consistent spacing.
+   Supports inline <strong> and <em> from JSON markdown. */
+.cs-section__body {
+    font-family: var(--font-sans);
+    font-size: var(--cs-body-size);
+    font-weight: var(--cs-body-weight);
+    line-height: var(--cs-body-line);
+    letter-spacing: var(--cs-body-track);
+    color: #333;
+    margin: 0 0 18px;
+    max-width: 640px;
+}
+.cs-section__body:last-child { margin-bottom: 0; }
+.cs-section__body strong { font-weight: var(--t-weight-semibold); }
+
+/* Caption that sits below an image / grid / comparison. */
+.cs-section__caption {
+    font-family: var(--font-sans);
+    font-size: var(--cs-caption-size);
+    font-weight: var(--cs-caption-weight);
+    line-height: var(--cs-caption-line);
+    letter-spacing: var(--cs-caption-track);
+    color: #989FA3;
+    margin: 16px 0 0;
+}
+
+/* ------------ text-media (text + image side-by-side) ------------- */
+/* Two-column block: one side text, the other side media. Modifier
+   controls which side the text is on. Stacks on mobile. */
+.cs-text-media {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: start;
+}
+.cs-text-media--text-right {
+    direction: rtl;
+}
+.cs-text-media--text-right > * {
+    direction: ltr;
+}
+
+.cs-text-media__text > :first-child { margin-top: 0; }
+.cs-text-media__text > :last-child { margin-bottom: 0; }
+.cs-text-media__media > :first-child { margin-top: 0; }
+.cs-text-media__media > :last-child { margin-bottom: 0; }
+
+/* Single image inside the media slot fills its column. */
+.cs-text-media__media img,
+.cs-text-media__media .placeholder-graphic {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+}
+
+@media (max-width: 760px) {
+    .cs-text-media,
+    .cs-text-media--text-right {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        direction: ltr;
+    }
+}
+
+/* ------------ media-comparison (before / after) ------------------- */
+/* Two figures side-by-side with a labelled tag in the corner of each.
+   Caption sits beneath the pair. */
+.cs-media-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.cs-media-comparison__item {
+    position: relative;
+    margin: 0;
+}
+
+.cs-media-comparison__item img,
+.cs-media-comparison__item .placeholder-graphic {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+}
+
+.cs-media-comparison__label {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(6px);
+    border-radius: 99px;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: var(--t-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #333;
+    z-index: 1;
+}
+
+@media (max-width: 600px) {
+    .cs-media-comparison {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+/* ------------ media-grid (2/3/4 columns) -------------------------- */
+.cs-media-grid {
+    display: grid;
+    gap: 16px;
+}
+.cs-media-grid--cols-2 { grid-template-columns: repeat(2, 1fr); }
+.cs-media-grid--cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cs-media-grid--cols-4 { grid-template-columns: repeat(4, 1fr); }
+.cs-media-grid--cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+.cs-media-grid img,
+.cs-media-grid .placeholder-graphic {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+}
+
+@media (max-width: 900px) {
+    .cs-media-grid--cols-5 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+    .cs-media-grid--cols-3,
+    .cs-media-grid--cols-4,
+    .cs-media-grid--cols-5 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 480px) {
+    .cs-media-grid--cols-2,
+    .cs-media-grid--cols-3,
+    .cs-media-grid--cols-4,
+    .cs-media-grid--cols-5 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ------------ stats row ------------------------------------------- */
+.cs-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    padding: 32px 0;
+    border-top: 1px solid #EDEDED;
+    border-bottom: 1px solid #EDEDED;
+}
+
+.cs-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cs-stat__value {
+    font-family: var(--font-serif);
+    font-size: clamp(2rem, 3vw, 2.5rem);
+    font-weight: var(--t-weight-regular);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: #1f1f1f;
+}
+
+.cs-stat__label {
+    font-family: var(--font-sans);
+    font-size: var(--cs-caption-size);
+    font-weight: var(--cs-caption-weight);
+    line-height: var(--cs-caption-line);
+    letter-spacing: var(--cs-caption-track);
+    color: #6c7176;
+}
+
+.cs-stat__delta {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: var(--t-weight-medium);
+    color: #2a8b3c;
+    margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+    .cs-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 420px) {
+    .cs-stats { grid-template-columns: 1fr; }
+}
+
+/* ------------ media-full (image OR video, full bleed) ------------- */
+.cs-media-full {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f4f0e7;
+}
+.cs-media-full img,
+.cs-media-full video,
+.cs-media-full .placeholder-graphic {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+/* Video placeholder hint — show a centered play glyph so the slot
+   reads as "video goes here" before real assets are wired up. */
+.placeholder-graphic--video {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Optional footnote below a stat (e.g. "Within first 6 months of launch") */
+.cs-stat__note {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: #989FA3;
+    margin-top: 6px;
+    max-width: 22ch;
+}
+
+/* ------------ subsection (nested heading inside a .cs-section) --- */
+/* Used when one section contains several "chapters" — e.g. design
+   iterations broken into Home / Payments / Onboarding. Each subsection
+   gets a hairline divider on top so the rhythm reads as nested. */
+.cs-subsection {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid #EDEDED;
+}
+.cs-subsection:first-of-type {
+    margin-top: 32px;
+    padding-top: 0;
+    border-top: none;
+}
+
+.cs-subsection__title {
+    font-family: var(--font-serif);
+    font-size: var(--cs-h3-size);
+    font-weight: var(--cs-h3-weight);
+    line-height: var(--cs-h3-line);
+    letter-spacing: var(--cs-h3-track);
+    color: #1f1f1f;
+    margin: 0 0 16px;
+}
+
+/* ------------ callout (tinted info box w/ optional list) ---------- */
+/* Highlights an aside — a bullet list, a note, or a brief observation
+   the body shouldn't carry inline. Warm cream tint with an amber rule
+   on the leading edge. */
+.cs-callout {
+    background: #faf6ec;
+    border-left: 3px solid #d4b378;
+    border-radius: 8px;
+    padding: 22px 26px;
+    margin: 28px 0;
+}
+
+.cs-callout__label {
+    font-family: var(--font-sans);
+    font-size: var(--cs-eyebrow-size);
+    font-weight: var(--cs-eyebrow-weight);
+    line-height: var(--cs-eyebrow-line);
+    letter-spacing: var(--cs-eyebrow-track);
+    text-transform: uppercase;
+    color: #8a6a30;
+    margin: 0 0 12px;
+}
+
+.cs-callout__body {
+    font-family: var(--font-sans);
+    font-size: var(--cs-body-size);
+    line-height: var(--cs-body-line);
+    color: #44403c;
+    margin: 0;
+}
+
+.cs-callout__list {
+    margin: 0;
+    padding: 0 0 0 18px;
+    list-style: disc;
+}
+
+.cs-callout__list li {
+    font-family: var(--font-sans);
+    font-size: var(--cs-body-size);
+    line-height: var(--cs-body-line);
+    color: #44403c;
+    margin: 6px 0;
+}
+.cs-callout__list li::marker { color: #d4b378; }
+
+/* ------------ phases (numbered breakdown of work) ----------------- */
+/* For describing distinct phases of a project (planning, execution,
+   handoff…). Each item gets a serif numeral, sans title, and a short
+   detail line. Two-column on desktop, single column on small screens. */
+.cs-phases {
+    list-style: none;
+    margin: 32px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.cs-phases__item {
+    padding: 22px 24px;
+    background: #fafaf7;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cs-phases__num {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    color: #989FA3;
+    letter-spacing: 0.02em;
+}
+
+.cs-phases__title {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: var(--t-weight-semibold);
+    line-height: 1.3;
+    color: #1f1f1f;
+    margin: 0;
+}
+
+.cs-phases__detail {
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #6c7176;
+    margin: 4px 0 0;
+}
+
+@media (max-width: 600px) {
+    .cs-phases { grid-template-columns: 1fr; }
+}
+
+/* ------------ flow comparison (text-based before/after) ----------- */
+/* Pair of short statements describing a flow change, tinted to read as
+   "before" (warm) and "after" (mint). Different from .cs-media-comparison
+   which compares two images. */
+.cs-flow-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+}
+
+.cs-flow-compare__item {
+    padding: 22px 24px;
+    border-radius: 10px;
+}
+
+.cs-flow-compare__before { background: #fdf3ee; }
+.cs-flow-compare__after  { background: #eef9ef; }
+
+.cs-flow-compare__tag {
+    display: inline-block;
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: var(--t-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #b46839;
+    margin-bottom: 10px;
+}
+.cs-flow-compare__after .cs-flow-compare__tag { color: #2a8b3c; }
+
+.cs-flow-compare__body {
+    font-family: var(--font-sans);
+    font-size: var(--cs-body-size);
+    line-height: 1.55;
+    color: #1f1f1f;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .cs-flow-compare { grid-template-columns: 1fr; }
+}
+
+/* ------------ credits (team line at the foot of overview) --------- */
+/* Inline-block list of contributors. Each .cs-credit shows a tiny role
+   eyebrow and the contributor's name. */
+.cs-credits {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #EDEDED;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px 28px;
+}
+
+.cs-credit__role {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: var(--t-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #989FA3;
+    margin: 0 0 4px;
+}
+
+.cs-credit__name {
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: var(--t-weight-medium);
+    color: #1f1f1f;
+    margin: 0;
+}
+
+.cs-credit__detail {
+    font-family: var(--font-sans);
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: #6c7176;
+    margin: 2px 0 0;
+}
+
+/* ------------ CTA (closing call-to-action button) ----------------- */
+/* Pill-shaped link sitting at the very end of a case study, after the
+   reflection paragraph. */
+.cs-cta-row {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid #EDEDED;
+}
+
+.cs-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    background: #1f1f1f;
+    color: #fff;
+    border-radius: 99px;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: var(--t-weight-semibold);
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.cs-cta:hover {
+    background: #000;
+    transform: translateY(-2px);
+}
+
+.cs-cta__arrow {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s ease;
+}
+
+.cs-cta:hover .cs-cta__arrow {
+    transform: translate(2px, -2px);
+}
+
+/* Dark-mode tone tweaks for the new components. Headlines/values
+   need to lift to a near-white; eyebrows + captions to a softer grey. */
+body.night-mode .cs-section__headline,
+body.night-mode .cs-stat__value,
+body.night-mode .cs-subsection__title,
+body.night-mode .cs-phases__title,
+body.night-mode .cs-flow-compare__body,
+body.night-mode .cs-credit__name {
+    color: #ECEEF0;
+}
+body.night-mode .cs-section__body,
+body.night-mode .cs-callout__body,
+body.night-mode .cs-callout__list li,
+body.night-mode .cs-phases__detail,
+body.night-mode .cs-credit__detail { color: #c2c5c9; }
+body.night-mode .cs-section__label,
+body.night-mode .cs-section__caption,
+body.night-mode .cs-stat__label,
+body.night-mode .cs-stat__note,
+body.night-mode .cs-credit__role { color: #8a9094; }
+body.night-mode .cs-stats,
+body.night-mode .cs-credits,
+body.night-mode .cs-subsection,
+body.night-mode .cs-cta-row {
+    border-top-color: #2a2a2a;
+    border-bottom-color: #2a2a2a;
+}
+body.night-mode .cs-media-comparison__label {
+    background: rgba(20, 20, 20, 0.85);
+    color: #ECEEF0;
+}
+body.night-mode .cs-callout {
+    background: rgba(212, 179, 120, 0.08);
+    border-left-color: rgba(212, 179, 120, 0.55);
+}
+body.night-mode .cs-callout__label { color: #d4b378; }
+body.night-mode .cs-phases__item { background: rgba(255, 255, 255, 0.03); }
+body.night-mode .cs-phases__num { color: #6c7176; }
+body.night-mode .cs-flow-compare__before { background: rgba(212, 99, 75, 0.08); }
+body.night-mode .cs-flow-compare__after  { background: rgba(75, 168, 99, 0.08); }
+body.night-mode .cs-flow-compare__tag { color: #d49266; }
+body.night-mode .cs-flow-compare__after .cs-flow-compare__tag { color: #6acf7f; }
+body.night-mode .cs-cta {
+    background: #ECEEF0;
+    color: #0d0d0d;
+}
+body.night-mode .cs-cta:hover { background: #fff; }
+
 /* Feature Image Hero */
 .pajelly-cs-hero-img {
     width: 100%;
@@ -2834,20 +4593,24 @@ body.night-mode::before {
     margin-bottom: 48px;
 }
 
+/* Case study H1. Role: cs-display-md (serif). */
 .pajelly-title {
     font-family: var(--font-serif);
-    font-size: var(--type-serif-case-title-size);
-    font-weight: var(--type-serif-case-title-weight);
+    font-size: var(--cs-display-md-size);
+    font-weight: var(--cs-display-md-weight);
+    line-height: var(--cs-display-md-line);
+    letter-spacing: var(--cs-display-md-track);
     color: #333;
-    line-height: var(--type-serif-case-title-leading);
     margin: 0 0 16px 0;
 }
 
+/* Subtitle below the case study H1. Role: cs-lead. */
 .pajelly-subtitle {
     font-family: var(--font-sans);
-    font-size: var(--type-lead-size);
-    font-weight: var(--type-lead-weight);
-    line-height: var(--type-lead-leading);
+    font-size: var(--cs-lead-size);
+    font-weight: var(--cs-lead-weight);
+    line-height: var(--cs-lead-line);
+    letter-spacing: var(--cs-lead-track);
     color: #82BBED;
     margin: 0;
 }
@@ -2860,22 +4623,25 @@ body.night-mode::before {
     margin-bottom: 120px;
 }
 
+/* Section eyebrow inside case studies (OVERVIEW, TIMELINE, …). Role: cs-eyebrow. */
 .pajelly-label {
     font-family: var(--font-sans);
-    font-size: var(--type-overline-size);
-    color: #82BBED;
-    letter-spacing: var(--type-overline-tracking);
+    font-size: var(--cs-eyebrow-size);
+    font-weight: var(--cs-eyebrow-weight);
+    line-height: var(--cs-eyebrow-line);
+    letter-spacing: var(--cs-eyebrow-track);
     text-transform: uppercase;
+    color: #82BBED;
     margin: 0 0 16px 0;
-    font-weight: var(--type-label-weight);
-    line-height: var(--type-label-leading);
 }
 
+/* Overview / description paragraphs in case studies. Role: cs-body. */
 .pajelly-desc {
     font-family: var(--font-sans);
-    font-size: var(--type-body-size);
-    font-weight: var(--type-body-weight);
-    line-height: var(--type-body-leading);
+    font-size: var(--cs-body-size);
+    font-weight: var(--cs-body-weight);
+    line-height: var(--cs-body-line);
+    letter-spacing: var(--cs-body-track);
     margin-bottom: 24px;
 }
 
@@ -2883,12 +4649,14 @@ body.night-mode::before {
     margin-bottom: 32px;
 }
 
+/* Metadata value (next to a .pajelly-label eyebrow). Role: cs-meta. */
 .pajelly-val {
     font-family: var(--font-sans);
-    font-size: var(--type-meta-size);
+    font-size: var(--cs-meta-size);
+    font-weight: var(--cs-meta-weight);
+    line-height: var(--cs-meta-line);
+    letter-spacing: var(--cs-meta-track);
     color: #333;
-    font-weight: var(--type-meta-weight);
-    line-height: var(--type-meta-leading);
     margin: 0;
 }
 
@@ -2910,44 +4678,55 @@ body.night-mode::before {
     flex-shrink: 0;
 }
 
+/* App-store style review block. */
+/* Big rating number — promoted to cs-display-md so it scales like a heading. */
 .rating-number {
-    font-size: 4rem;
-    font-weight: 700;
-    color: #111;
+    font-family: var(--font-sans);
+    font-size: var(--cs-display-md-size);
+    font-weight: var(--t-weight-bold);
     line-height: 1;
+    color: #111;
 }
 
 .rating-stars {
+    font-family: var(--font-sans);
+    font-size: var(--cs-h3-size);
+    line-height: var(--cs-h3-line);
     color: #111;
-    font-size: 1.25rem;
-    margin: 8px 0;
     letter-spacing: 4px;
+    margin: 8px 0;
 }
 
 .rating-text {
-    font-size: 0.9rem;
+    font-family: var(--font-sans);
+    font-size: var(--cs-caption-size);
+    font-weight: var(--t-weight-medium);
+    line-height: var(--cs-caption-line);
     color: #989FA3;
-    font-weight: 500;
 }
 
 .review-right {
     flex-grow: 1;
 }
 
+/* Pull quote / testimonial inside .review-box. Role: cs-quote. */
 .review-quote {
     font-family: var(--font-sans);
-    font-size: var(--type-quote-size);
-    line-height: var(--type-quote-leading);
+    font-size: var(--cs-quote-size);
+    font-weight: var(--cs-quote-weight);
+    line-height: var(--cs-quote-line);
+    letter-spacing: var(--cs-quote-track);
     color: #333;
-    font-weight: var(--type-quote-weight);
     margin: 0 0 16px 0;
 }
 
+/* Quote attribution line. Role: cs-caption. */
 .review-author {
     font-family: var(--font-sans);
-    font-size: var(--type-caption-size);
-    font-weight: var(--type-caption-weight);
-    line-height: var(--type-caption-leading);
+    font-size: var(--cs-caption-size);
+    font-weight: var(--cs-caption-weight);
+    line-height: var(--cs-caption-line);
+    letter-spacing: var(--cs-caption-track);
     color: #989FA3;
     margin: 0;
 }
@@ -2957,20 +4736,24 @@ body.night-mode::before {
     margin-bottom: 120px;
 }
 
+/* Section heading inside a case-study feature ("Reflections."). Role: cs-h2. */
 .feature-title {
     font-family: var(--font-sans);
-    font-size: var(--type-heading-size);
-    font-weight: var(--type-heading-weight);
-    line-height: var(--type-heading-leading);
+    font-size: var(--cs-h2-size);
+    font-weight: var(--cs-h2-weight);
+    line-height: var(--cs-h2-line);
+    letter-spacing: var(--cs-h2-track);
     color: #111;
     margin: 0 0 8px 0;
 }
 
+/* Sub-heading directly under a .feature-title. Role: cs-body, muted color. */
 .feature-subtitle {
     font-family: var(--font-sans);
-    font-size: var(--type-body-size);
-    font-weight: var(--type-body-weight);
-    line-height: var(--type-body-leading);
+    font-size: var(--cs-body-size);
+    font-weight: var(--cs-body-weight);
+    line-height: var(--cs-body-line);
+    letter-spacing: var(--cs-body-track);
     color: #989FA3;
     margin: 0 0 40px 0;
 }
@@ -2979,11 +4762,13 @@ body.night-mode::before {
     width: 100%;
 }
 
+/* Image / asset caption inside a feature block. Role: cs-caption. */
 .feature-caption {
     font-family: var(--font-sans);
-    font-size: var(--type-caption-size);
-    font-weight: var(--type-caption-weight);
-    line-height: var(--type-caption-leading);
+    font-size: var(--cs-caption-size);
+    font-weight: var(--cs-caption-weight);
+    line-height: var(--cs-caption-line);
+    letter-spacing: var(--cs-caption-track);
     color: #989FA3;
     margin-top: 16px;
     text-align: left;
@@ -2997,24 +4782,34 @@ body.night-mode::before {
     margin-bottom: 120px;
 }
 
+/* Eyebrow inside a feature block ("VIDEO KYC", "EVOLUTION"). Role: cs-eyebrow. */
 .feature-label {
     font-family: var(--font-sans);
-    font-size: var(--type-overline-size);
-    color: #989FA3;
-    letter-spacing: var(--type-label-tracking);
-    line-height: var(--type-label-leading);
+    font-size: var(--cs-eyebrow-size);
+    font-weight: var(--cs-eyebrow-weight);
+    line-height: var(--cs-eyebrow-line);
+    letter-spacing: var(--cs-eyebrow-track);
     text-transform: uppercase;
+    color: #989FA3;
     margin: 0 0 16px 0;
-    font-weight: var(--type-label-weight);
 }
 
+/* Long-form prose inside a feature block. Role: cs-body. */
 .feature-body {
     font-family: var(--font-sans);
-    font-size: var(--type-body-size);
-    font-weight: var(--type-body-weight);
-    line-height: var(--type-body-leading);
+    font-size: var(--cs-body-size);
+    font-weight: var(--cs-body-weight);
+    line-height: var(--cs-body-line);
+    letter-spacing: var(--cs-body-track);
     margin-bottom: 40px;
-    max-width: 600px;
+    max-width: 640px;
+}
+
+/* Muted variant — replaces the inline `style="font-size: 1rem; color: #989FA3"`
+   override that was in project-1.html line 231 (Evolution lead-in). Use this
+   class on a .feature-body when you want the same role at the muted color. */
+.feature-body--muted {
+    color: #989FA3;
 }
 
 .appstore-asset-stack {
@@ -3031,30 +4826,34 @@ body.night-mode::before {
     padding-top: 40px;
 }
 
+/* Case study footer — eyebrow → display → body-sm. */
 .footer-title {
     font-family: var(--font-sans);
-    font-size: var(--type-label-size);
-    font-weight: var(--type-label-weight);
+    font-size: var(--cs-eyebrow-size);
+    font-weight: var(--cs-eyebrow-weight);
+    line-height: var(--cs-eyebrow-line);
+    letter-spacing: var(--cs-eyebrow-track);
+    text-transform: uppercase;
     color: #989FA3;
-    letter-spacing: var(--type-label-tracking);
-    line-height: var(--type-label-leading);
     margin: 0 0 16px 0;
 }
 
 .footer-name {
     font-family: var(--font-serif);
-    font-size: var(--type-serif-card-title-size);
-    font-weight: var(--type-serif-display-weight);
-    line-height: var(--type-serif-card-title-leading);
+    font-size: var(--cs-display-sm-size);
+    font-weight: var(--cs-display-sm-weight);
+    line-height: var(--cs-display-sm-line);
+    letter-spacing: var(--cs-display-sm-track);
     color: #111;
     margin: 0 0 8px 0;
 }
 
 .footer-role {
     font-family: var(--font-sans);
-    font-size: var(--type-body-size);
-    font-weight: var(--type-body-weight);
-    line-height: var(--type-body-leading);
+    font-size: var(--cs-body-sm-size);
+    font-weight: var(--cs-body-sm-weight);
+    line-height: var(--cs-body-sm-line);
+    letter-spacing: var(--cs-body-sm-track);
     color: #989FA3;
     margin: 0;
 }
@@ -3087,9 +4886,9 @@ body.night-mode::before {
         padding-right: 0 !important;
     }
 
-    .play-bento-grid {
-        columns: 1;
-    }
+    /* (The play page collapses to its own single-column stack
+       inside the .play-bento-grid section — no column override
+       needed here.) */
 
     .work-container.bento-grid,
     .pajelly-cs-grid {
@@ -3106,15 +4905,10 @@ body.night-mode::before {
         grid-row: auto;
     }
 
-    .work-container.bento-grid .work-card,
-    .play-bento-grid .work-card {
-        height: 36vh !important; /* Increased by 50% from 24vh */
+    .work-container.bento-grid .work-card {
+        height: 36vh !important;
         aspect-ratio: auto;
         margin-bottom: 0;
-    }
-
-    .play-bento-grid .work-card {
-        margin-bottom: 24px;
     }
 
     /* Shield absolute mascot rendering so it doesn't break limits */
@@ -3346,9 +5140,6 @@ body.night-mode::before {
 
 .nav-item.is-active {
     color: #1A1A1A;
-    text-decoration: underline;
-    text-decoration-thickness: 1.5px;
-    text-underline-offset: 6px;
 }
 
 .about-page {

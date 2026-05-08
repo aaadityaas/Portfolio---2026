@@ -12,6 +12,27 @@
         href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <!-- GSAP for page-fade transition (must load before script.js) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"></script>
+    <!-- Page-transition bootstrap: if we got here from the homepage's
+         fade-out, hide body BEFORE first paint and pin <html> to the
+         current theme's bg colour so there is no flash of content or
+         wrong-mode bg between pages. script.js fades body back in. -->
+    <script>
+        (function () {
+            try {
+                var raw = sessionStorage.getItem('cs-fade');
+                if (!raw) return;
+                var data = JSON.parse(raw);
+                if (!data || Date.now() - data.ts > 4000) return;
+                sessionStorage.removeItem('cs-fade');
+                document.documentElement.classList.add('cs-incoming');
+                var theme = localStorage.getItem('portfolio-theme');
+                document.documentElement.style.backgroundColor =
+                    theme === 'dark' ? '#0d0d0d' : '#fcfbf9';
+            } catch (e) { }
+        })();
+    </script>
 </head>
 
 <body class="pajelly-cs-body">
@@ -149,6 +170,7 @@
             </div>
         </footer>
 
+        <div data-site-footer="minimal"></div>
     </main>
 </body>
 

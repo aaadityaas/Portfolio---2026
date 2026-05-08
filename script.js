@@ -186,7 +186,31 @@ if (headerMount) {
 
 const footerMounts = document.querySelectorAll('[data-site-footer]');
 
+// Shared scenery (clouds + grassland) that appears on every page that mounts a
+// footer. Lives outside the `.container` so it can overflow the page width.
+const footerSceneryHtml = `
+    <img class="footer-cloud footer-cloud--left" src="asset/cloud%20left.png" alt="" aria-hidden="true">
+    <img class="footer-cloud footer-cloud--right" src="asset/cloud%20+%20sun.png" alt="" aria-hidden="true">
+
+    <div class="footer-grassland" aria-hidden="true">
+        <img src="asset/grassland%20footer.png" alt="">
+    </div>
+`;
+
 footerMounts.forEach(mount => {
+    const variant = mount.getAttribute('data-site-footer');
+
+    if (variant === 'minimal') {
+        // Used on every page except the homepage — only the clouds + grassland
+        // scenery, no CTA / sticky note / copyright row.
+        mount.innerHTML = `
+            <footer class="site-footer site-footer--minimal">
+                ${footerSceneryHtml}
+            </footer>
+        `;
+        return;
+    }
+
     mount.innerHTML = `
         <footer class="site-footer">
             <div class="container">
@@ -218,12 +242,6 @@ footerMounts.forEach(mount => {
                     </div>
                 </section>
 
-                <div class="footer-wordmark-shell" aria-hidden="true">
-                    <span class="footer-wordmark">
-                        <img src="asset/the.end.png" alt="the end">
-                    </span>
-                </div>
-
                 <div class="footer-meta">
                     <p class="footer-meta-copy">
                         Copyright → Made with procrastination and overthinking<br>
@@ -251,7 +269,15 @@ footerMounts.forEach(mount => {
                         </a>
                     </div>
                 </div>
+
+                <div class="footer-wordmark-shell" aria-hidden="true">
+                    <span class="footer-wordmark">
+                        <img src="asset/the.end.png" alt="the end">
+                    </span>
+                </div>
             </div>
+
+            ${footerSceneryHtml}
         </footer>
     `;
 });
@@ -280,6 +306,7 @@ const projectModal = document.getElementById('project-modal');
 const modalBackdrop = document.getElementById('modal-backdrop');
 const modalClose = document.getElementById('modal-close');
 const workCards = document.querySelectorAll('.work-card');
+const homeWorkCards = document.querySelectorAll('#work-wall .work-card');
 
 // Create dynamic custom cursor label
 const cursorLabel = document.createElement('div');
@@ -316,13 +343,35 @@ document.querySelectorAll('.hero-v2__tag').forEach(el => {
 let cursorTimeout;
 
 workCards.forEach(card => {
+    const link = card.getAttribute('data-link');
+
+    const navigateToCardLink = () => {
+        if (!link) return;
+        cursorLabel.style.opacity = '0';
+        if (typeof cursorDot !== 'undefined' && cursorDot) {
+            cursorDot.style.opacity = '0';
+        }
+        if (typeof window.startPageFadeNavigation === 'function') {
+            window.startPageFadeNavigation(link);
+            return;
+        }
+        window.location.href = link;
+    };
+
     card.addEventListener('click', () => {
-        const link = card.getAttribute('data-link');
-        if (link) {
-            window.location.href = link;
+        navigateToCardLink();
+    });
+
+    card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigateToCardLink();
         }
     });
 
+    // All work cards (homepage + work page) share the same hover behavior:
+    // the cursor label surfaces the project title (and description if present).
+    // No in-card transform — the cursor is the sole affordance.
     card.addEventListener('mouseenter', () => {
         clearTimeout(cursorTimeout);
         const title = card.getAttribute('data-title');
@@ -345,6 +394,175 @@ workCards.forEach(card => {
         cursorLabel.style.top = `${e.clientY - 15}px`;
     });
 });
+
+/* ==========================================================================
+   PAGE TRANSITIONS — full-page fade
+   --------------------------------------------------------------------------
+   Every navigation between the homepage and a case study (and back) is a
+   simple body-opacity cross-fade that bridges across the page swap by:
+     1. Fading body to 0 over the current theme's bg colour (light/dark),
+     2. Setting window.location.href,
+     3. The destination page's <head> already added .cs-incoming to <html>
+        (because it found a sessionStorage flag) so its body stays opacity 0
+        through first paint,
+     4. This script removes .cs-incoming and tweens body back to 1.
+
+   Why no morphing card / overlay / sharedelement: cross-document morphs
+   require either the View Transitions API (snapshot-bound, jittery) or a
+   second cloned overlay on the destination (heavy, brittle on layout
+   shifts). A simple themed fade is cheap, looks polished, and works the
+   same on every browser.
+   ========================================================================== */
+(function setupPageFadeTransitions() {
+    const FADE_KEY = 'cs-fade';
+    const hasGsap = typeof window.gsap !== 'undefined';
+    const reduceMotion = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function navigateWithFade(link) {
+        if (!link) return;
+        if (!hasGsap) {
+            window.location.href = link;
+            return;
+        }
+
+        try {
+            sessionStorage.setItem(FADE_KEY, JSON.stringify({ ts: Date.now() }));
+        } catch (_) { /* storage unavailable, fade still works */ }
+
+        const dur = reduceMotion ? 0.001 : 0.32;
+        gsap.to(document.body, {
+            autoAlpha: 0,
+            duration: dur,
+            ease: 'power2.in',
+            onComplete: () => { window.location.href = link; }
+        });
+    }
+
+    // Public entry the card click handler calls.
+    window.startPageFadeNavigation = navigateWithFade;
+
+    // Wire the case-study back / close links to the same fade. The
+    // anchors still have real hrefs so middle-click / right-click /
+    // browser-back keep working normally.
+    //
+    // When the user originated from the homepage's work section, going
+    // back should drop them right back there — never the homepage hero.
+    // We force a #work fragment onto the URL if it isn't already there.
+    document.addEventListener('click', (e) => {
+        const back = e.target.closest && e.target.closest('.cs-back, .nav-close');
+        if (!back) return;
+        const rawHref = back.getAttribute('href');
+        if (!rawHref || rawHref.startsWith('#')) return; // pure in-page anchor
+        e.preventDefault();
+        const href = rawHref.includes('#')
+            ? rawHref
+            : rawHref.replace(/\/$/, '') + '#work';
+        navigateWithFade(href);
+    });
+
+    // Wait until images have loaded AND fonts are ready before fading
+    // the page in, so the user doesn't see layout shift / font swap
+    // mid-fade. Safety timeout prevents stalling on slow assets.
+    function whenPageReady(callback) {
+        let done = false;
+        const finish = () => { if (!done) { done = true; callback(); } };
+
+        const onLoadAndFonts = () => {
+            if (document.fonts && document.fonts.ready
+                && typeof document.fonts.ready.then === 'function') {
+                document.fonts.ready.then(finish, finish);
+            } else {
+                finish();
+            }
+        };
+
+        if (document.readyState === 'complete') {
+            onLoadAndFonts();
+        } else {
+            window.addEventListener('load', onLoadAndFonts, { once: true });
+        }
+
+        // Don't wait longer than 700ms even if a stray asset is slow.
+        setTimeout(finish, 700);
+    }
+
+    // Incoming fade-in. The early head script in each HTML file added
+    // .cs-incoming to <html> (which hides body via CSS) when it found a
+    // pending fade in sessionStorage. We just reverse it.
+    function runIncomingFadeIn() {
+        const incoming = document.documentElement.classList.contains('cs-incoming');
+        if (!incoming) return;
+
+        if (!hasGsap) {
+            document.documentElement.classList.remove('cs-incoming');
+            document.documentElement.style.backgroundColor = '';
+            return;
+        }
+
+        // Body is at opacity 0 because of the .cs-incoming CSS rule.
+        // Switch the hide mechanism from class -> inline style so we can
+        // smoothly tween it back to 1.
+        gsap.set(document.body, { autoAlpha: 0 });
+        document.documentElement.classList.remove('cs-incoming');
+
+        // Wait for assets + fonts so the fade reveals a fully-settled
+        // page (no font swap or image-load layout shift mid-fade).
+        whenPageReady(() => {
+            // Re-resolve the URL fragment after layout has settled.
+            // The browser scrolls to the fragment at parse time, but
+            // image and shader-canvas mounts shift the document height
+            // afterwards, so the original scroll lands at the wrong
+            // pixel. We snap to the target element again now that the
+            // page is fully laid out, before the fade reveals it.
+            const hash = window.location.hash;
+            if (hash && hash.length > 1) {
+                let target = null;
+                try { target = document.getElementById(decodeURIComponent(hash.slice(1))); }
+                catch (_) { target = document.getElementById(hash.slice(1)); }
+                if (target && typeof target.scrollIntoView === 'function') {
+                    target.scrollIntoView({ block: 'start', behavior: 'instant' });
+                }
+            }
+
+            gsap.to(document.body, {
+                autoAlpha: 1,
+                duration: reduceMotion ? 0.001 : 0.45,
+                ease: 'power2.out',
+                onComplete: () => {
+                    document.documentElement.style.backgroundColor = '';
+                }
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runIncomingFadeIn);
+    } else {
+        runIncomingFadeIn();
+    }
+
+    // Safety: if something kept .cs-incoming around, remove it after a
+    // timeout so the page never stays permanently invisible.
+    setTimeout(() => {
+        if (document.documentElement.classList.contains('cs-incoming')) {
+            document.documentElement.classList.remove('cs-incoming');
+            document.documentElement.style.backgroundColor = '';
+            if (hasGsap) gsap.set(document.body, { autoAlpha: 1, clearProps: 'opacity,visibility' });
+        }
+    }, 1500);
+
+    // bfcache restore: clear any stale fade flag and force the page back
+    // to fully visible (otherwise users hitting browser back into a
+    // restored page would see it stuck at opacity 0).
+    window.addEventListener('pageshow', (ev) => {
+        if (!ev.persisted) return;
+        try { sessionStorage.removeItem(FADE_KEY); } catch (_) {}
+        document.documentElement.classList.remove('cs-incoming');
+        document.documentElement.style.backgroundColor = '';
+        if (hasGsap) gsap.set(document.body, { autoAlpha: 1, clearProps: 'opacity,visibility' });
+    });
+})();
 
 // --- Mobile Menu Interaction ---
 const mobileBtn = document.getElementById('mobile-menu-btn');
@@ -580,5 +798,341 @@ if (heroCamera) {
         stagger,
         ease,
         clearProps: 'filter',
+    });
+})();
+
+/**
+ * Home hero: hover-to-pop on .hero-v2__pixel squares.
+ * Emits a small burst of colored mini-pixels from the hovered square
+ * and nudges the square itself. Driven by GSAP.
+ */
+(function initHeroPixelPop() {
+    if (typeof gsap === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+    const frame = document.querySelector('.hero-v2__frame');
+    const squares = Array.from(document.querySelectorAll('.hero-v2__pixel'));
+    if (!frame || !squares.length) return;
+
+    const colors = ['#FF6B00', '#f97a4f', '#f9a5f6', '#96dc91', '#72C5F9'];
+    const rand = gsap.utils.random;
+
+    // Cooldown per square so a quick sweep still produces a burst but doesn't spam
+    const cooldownMs = 260;
+
+    function popSquare(sq) {
+        const now = performance.now();
+        const last = parseFloat(sq.dataset.lastPop || '0');
+        if (now - last < cooldownMs) return;
+        sq.dataset.lastPop = String(now);
+
+        gsap.fromTo(
+            sq,
+            { scale: 1, y: 0 },
+            {
+                scale: 1.22,
+                y: -4,
+                duration: 0.18,
+                ease: 'power3.out',
+                yoyo: true,
+                repeat: 1,
+                transformOrigin: '50% 50%',
+                overwrite: 'auto',
+            }
+        );
+
+        const rect = sq.getBoundingClientRect();
+        const frameRect = frame.getBoundingClientRect();
+        const scaleX = rect.width ? rect.width / sq.offsetWidth : 1;
+        const scaleY = rect.height ? rect.height / sq.offsetHeight : 1;
+        const cx = (rect.left - frameRect.left) / scaleX + sq.offsetWidth / 2;
+        const cy = (rect.top - frameRect.top) / scaleY + sq.offsetHeight / 2;
+
+        const count = Math.round(rand(4, 7));
+        for (let i = 0; i < count; i++) {
+            const px = document.createElement('span');
+            px.className = 'hero-v2__pixel-burst';
+            const size = rand(6, 10);
+            px.style.width = size + 'px';
+            px.style.height = size + 'px';
+            px.style.left = cx - size / 2 + 'px';
+            px.style.top = cy - size / 2 + 'px';
+            px.style.backgroundColor = colors[Math.floor(rand(0, colors.length - 0.0001))];
+            frame.appendChild(px);
+
+            const angle = rand(0, Math.PI * 2);
+            const dist = rand(28, 58);
+            gsap.fromTo(
+                px,
+                { scale: 0, opacity: 1, rotate: 0 },
+                {
+                    x: Math.cos(angle) * dist,
+                    y: Math.sin(angle) * dist,
+                    rotate: rand(-40, 40),
+                    scale: rand(0.9, 1.1),
+                    opacity: 0,
+                    duration: rand(0.55, 0.85),
+                    ease: 'power3.out',
+                    onComplete: () => px.remove(),
+                }
+            );
+        }
+    }
+
+    squares.forEach((sq) => {
+        sq.addEventListener('mouseenter', () => popSquare(sq));
+        sq.addEventListener('pointerenter', () => popSquare(sq));
+    });
+
+    // Proximity fallback: if pointer glides close to a pixel inside the frame,
+    // still trigger its pop. Useful when tiny scaled squares are easy to skim past.
+    const proximityPx = 14;
+    frame.addEventListener('pointermove', (e) => {
+        const fr = frame.getBoundingClientRect();
+        const scale = fr.width / frame.offsetWidth || 1;
+        const x = (e.clientX - fr.left) / scale;
+        const y = (e.clientY - fr.top) / scale;
+
+        for (let i = 0; i < squares.length; i++) {
+            const sq = squares[i];
+            const left = sq.offsetLeft;
+            const top = sq.offsetTop;
+            const right = left + sq.offsetWidth;
+            const bottom = top + sq.offsetHeight;
+            const dx = x < left ? left - x : x > right ? x - right : 0;
+            const dy = y < top ? top - y : y > bottom ? y - bottom : 0;
+            if (dx * dx + dy * dy <= proximityPx * proximityPx) {
+                popSquare(sq);
+            }
+        }
+    });
+})();
+
+
+/* ----------------------------------------------------------------------------
+ * Play page — Bento Card Popout (FLIP container transform)
+ *
+ * Mounts on /play.html. Each [data-play-card] in #play-wall behaves like:
+ *   • Hover  → CSS-only "container transform" (hovered card scales up,
+ *              siblings squeeze + dim — see .play-bento-grid styles).
+ *   • Click  → clone the card, FLIP-animate it from its grid rect into the
+ *              centered .play-popout__stage, fade in the caption (data-title +
+ *              data-detail). Backdrop / × / Esc reverses the animation back
+ *              into the source card's rect, then removes the clone.
+ *
+ * The original card stays in the DOM (visibility: hidden via .is-popout-source)
+ * so the grid layout doesn't shift while the popout is open.
+ *
+ * No-ops on every other page because #play-popout / #play-wall aren't there.
+ * ------------------------------------------------------------------------- */
+(function initPlayBentoPopout() {
+    const grid = document.getElementById('play-wall');
+    const popout = document.getElementById('play-popout');
+    if (!grid || !popout) return;
+
+    const stage = popout.querySelector('[data-popout-stage]');
+    const titleEl = popout.querySelector('.play-popout__title');
+    const detailEl = popout.querySelector('.play-popout__detail');
+    if (!stage || !titleEl || !detailEl) return;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const TWEEN_MS = 520;     // matches the CSS transition timing
+    const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+    let activeCard = null;    // the source .work-card
+    let clone = null;         // the lifted clone
+    let isOpen = false;
+    let isAnimating = false;
+
+    /* Build a clone of the source card, set position: fixed at the source's
+       on-screen rect, and append it to the popout. The clone keeps its own
+       <video>/<img> alive so playback continues seamlessly. */
+    function buildClone(card) {
+        const c = card.cloneNode(true);
+        c.classList.add('play-popout__clone');
+        c.removeAttribute('data-play-card');
+        c.removeAttribute('id');
+        // cloneNode preserves attributes but not the muted IDL state on <video>.
+        // Re-apply so the clone autoplays in browsers that block sound.
+        c.querySelectorAll('video').forEach((v) => {
+            v.muted = true;
+            v.setAttribute('muted', '');
+            v.setAttribute('playsinline', '');
+            const p = v.play();
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+        });
+        return c;
+    }
+
+    /* Read the source card's centre + unrotated size + transform.
+       Using offsetWidth/Height (not getBoundingClientRect's rotated bbox)
+       lets the clone start at exactly the visual position of the source
+       even when the source has a rotation applied. */
+    function readCardGeometry(card) {
+        const bbox = card.getBoundingClientRect();
+        return {
+            centerX: bbox.left + bbox.width / 2,
+            centerY: bbox.top + bbox.height / 2,
+            width: card.offsetWidth || bbox.width,
+            height: card.offsetHeight || bbox.height,
+            transform: getComputedStyle(card).transform || 'none',
+        };
+    }
+
+    /* Compute a stage rect that respects the source's aspect ratio,
+       fitting inside a max bounding box centred in the viewport. This
+       way a square source morphs to a square popout, a 4:5 to a 4:5,
+       etc., instead of always stretching to a fixed-aspect stage. */
+    function computeStageRect(card) {
+        const aspect = (card.offsetWidth || 1) / (card.offsetHeight || 1);
+        const maxW = Math.min(window.innerWidth * 0.6, 600);
+        const maxH = Math.min(window.innerHeight * 0.78, 760);
+        let w, h;
+        if (aspect >= maxW / maxH) {
+            w = maxW;
+            h = maxW / aspect;
+        } else {
+            h = maxH;
+            w = maxH * aspect;
+        }
+        return {
+            width: w,
+            height: h,
+            left: (window.innerWidth - w) / 2,
+            top: (window.innerHeight - h) / 2,
+        };
+    }
+
+    function open(card) {
+        if (isOpen || isAnimating) return;
+        isAnimating = true;
+        activeCard = card;
+
+        // Fill the caption + announce.
+        titleEl.textContent = card.dataset.title || '';
+        detailEl.textContent = card.dataset.detail || '';
+
+        const from = readCardGeometry(card);
+        const target = computeStageRect(card);
+
+        // Resize the stage element to the target rect so screen-readers
+        // and any future hit-testing reflect the actual popout area.
+        stage.style.width = target.width + 'px';
+        stage.style.height = target.height + 'px';
+
+        clone = buildClone(card);
+        clone.style.position = 'fixed';
+        clone.style.top = (from.centerY - from.height / 2) + 'px';
+        clone.style.left = (from.centerX - from.width / 2) + 'px';
+        clone.style.width = from.width + 'px';
+        clone.style.height = from.height + 'px';
+        clone.style.transform = from.transform;
+        clone.style.transformOrigin = 'center center';
+        popout.appendChild(clone);
+
+        // Force layout so the browser sees the start state before we transition.
+        // eslint-disable-next-line no-unused-expressions
+        clone.getBoundingClientRect();
+
+        card.classList.add('is-popout-source');
+        grid.classList.add('is-popout-open');
+        popout.classList.add('is-open');
+        popout.setAttribute('aria-hidden', 'false');
+
+        const duration = reducedMotion.matches ? 0 : TWEEN_MS;
+        clone.style.transition = `top ${duration}ms ${EASE}, left ${duration}ms ${EASE}, width ${duration}ms ${EASE}, height ${duration}ms ${EASE}, transform ${duration}ms ${EASE}, box-shadow ${duration}ms ${EASE}`;
+
+        // Kick the morph on the next frame so the transition fires.
+        // Animate to the centred stage rect AND unwind the rotation.
+        requestAnimationFrame(() => {
+            clone.style.top = target.top + 'px';
+            clone.style.left = target.left + 'px';
+            clone.style.width = target.width + 'px';
+            clone.style.height = target.height + 'px';
+            clone.style.transform = 'none';
+        });
+
+        const finish = () => {
+            isAnimating = false;
+            isOpen = true;
+        };
+        if (duration === 0) finish();
+        else setTimeout(finish, duration);
+    }
+
+    function close() {
+        if (!isOpen || isAnimating || !clone || !activeCard) return;
+        isAnimating = true;
+        // Re-measure the source — viewport may have scrolled.
+        const back = readCardGeometry(activeCard);
+
+        const duration = reducedMotion.matches ? 0 : TWEEN_MS;
+        clone.style.transition = `top ${duration}ms ${EASE}, left ${duration}ms ${EASE}, width ${duration}ms ${EASE}, height ${duration}ms ${EASE}, transform ${duration}ms ${EASE}, box-shadow ${duration}ms ${EASE}, opacity ${duration}ms ${EASE}`;
+
+        popout.classList.remove('is-open');
+        popout.setAttribute('aria-hidden', 'true');
+
+        requestAnimationFrame(() => {
+            clone.style.top = (back.centerY - back.height / 2) + 'px';
+            clone.style.left = (back.centerX - back.width / 2) + 'px';
+            clone.style.width = back.width + 'px';
+            clone.style.height = back.height + 'px';
+            clone.style.transform = back.transform;
+            // The clone's box-shadow softens back to the card's resting shadow.
+            clone.style.boxShadow = '0 14px 32px rgba(40, 28, 16, 0.14)';
+        });
+
+        const finish = () => {
+            if (clone && clone.parentNode) clone.parentNode.removeChild(clone);
+            clone = null;
+            if (activeCard) activeCard.classList.remove('is-popout-source');
+            grid.classList.remove('is-popout-open');
+            activeCard = null;
+            isOpen = false;
+            isAnimating = false;
+        };
+        if (duration === 0) finish();
+        else setTimeout(finish, duration);
+    }
+
+    // Card click → open
+    grid.querySelectorAll('[data-play-card]').forEach((card) => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            open(card);
+        });
+        // Enable keyboard activation.
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('role', 'button');
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open(card);
+            }
+        });
+    });
+
+    // Backdrop / close button
+    popout.querySelectorAll('[data-popout-close]').forEach((el) => {
+        el.addEventListener('click', close);
+    });
+
+    // Esc to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isOpen) close();
+    });
+
+    // Re-measure & resnap if the viewport resizes while open. We don't want a
+    // stale rect to leave the clone offset, so just reflow it onto the stage.
+    window.addEventListener('resize', () => {
+        if (!isOpen || !clone) return;
+        const stageRect = stage.getBoundingClientRect();
+        clone.style.transition = 'none';
+        setRect(clone, stageRect);
+        // Force reflow then restore transition for a future close anim.
+        // eslint-disable-next-line no-unused-expressions
+        clone.getBoundingClientRect();
+        clone.style.transition = '';
     });
 })();

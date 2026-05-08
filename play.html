@@ -64,9 +64,35 @@
                 <div class="projects-header">
                     <h2 class="projects-title">my playground</h2>
                 </div>
-                <!-- Work Wall Display (Play Bento Grid) -->
-                <div class="work-container play-bento-grid" id="play-wall">
-                    <div class="work-card play-card-1" data-parallax="0.05" data-title="Zapp — Add Money">
+                <!-- Scrapbook canvas: photos pinned at small rotations, sticky
+                     notes interleaved between them. Each [data-play-card]
+                     supports either an <img>, a <video>, or a CSS
+                     background-image. Cards with [data-polaroid] get the
+                     white photo-frame chrome; without it they sit edge-to-
+                     edge. Sticky notes are decorative (pointer-events:none)
+                     so they never intercept card clicks even when they
+                     visually overlap a card.
+                     Hover  → hovered card unwinds to upright + scales up,
+                              siblings dim/saturate down.
+                     Click  → card morphs into a centered popout; see
+                              initPlayBentoPopout() in script.js. -->
+                <div class="work-container play-bento-grid" id="play-wall" data-play-grid>
+
+                    <!-- ── Sticky notes (decorative, non-interactive) ── -->
+                    <div class="play-sticky play-sticky-1 play-sticky--pink" aria-hidden="true">
+                        play =<br>practice in<br>disguise.
+                    </div>
+                    <div class="play-sticky play-sticky-2 play-sticky--yellow" aria-hidden="true">
+                        rough<br>drafts<br>are the<br>point.
+                    </div>
+                    <div class="play-sticky play-sticky-3 play-sticky--pink" aria-hidden="true">
+                        you don't need<br>a perfect brief.<br>just <em>start</em>.
+                    </div>
+
+                    <!-- ── Cards ── -->
+                    <div class="work-card play-card-1" data-play-card data-polaroid
+                         data-title="Zapp — Add Money"
+                         data-detail="A quick concept for adding money on a finance app, paired with a tactile ledger feel.">
                         <div class="card-content">
                             <video autoplay loop muted playsinline>
                                 <source src="asset/zapp-add-money.mp4" type="video/mp4">
@@ -74,40 +100,66 @@
                             </video>
                         </div>
                     </div>
-                    <div class="work-card play-card-2" data-parallax="-0.08" data-title="Blue Daisies">
-                        <div class="card-content" style="background-image: url('asset/water.png');">
-                        </div>
+
+                    <div class="work-card play-card-2" data-play-card
+                         data-title="Blue Daisies"
+                         data-detail="Photo study — soft palette and slow rhythm.">
+                        <div class="card-content" style="background-image: url('asset/water.png');"></div>
                     </div>
-                    <div class="work-card play-card-3" data-parallax="0.1" data-title="Butterfly Meadow">
-                        <div class="card-content" style="background-image: url('asset/flower valey.png');">
-                        </div>
+
+                    <div class="work-card play-card-3" data-play-card data-polaroid
+                         data-title="Butterfly Meadow"
+                         data-detail="A field of details I keep returning to.">
+                        <div class="card-content" style="background-image: url('asset/flower valey.png');"></div>
                     </div>
-                    <div class="work-card play-card-4" data-parallax="-0.03" data-title="Minimalist View">
-                        <div class="card-content" style="background-image: url('asset/sunset.png');">
-                        </div>
+
+                    <div class="work-card play-card-4" data-play-card
+                         data-title="Minimalist View"
+                         data-detail="Quiet horizon, warm gradient, room to breathe.">
+                        <div class="card-content" style="background-image: url('asset/sunset.png');"></div>
                     </div>
-                    <div class="work-card play-card-5" data-parallax="0.04" data-title="Motion Graphics">
-                        <div class="card-content" style="background-color: #f1f3f5;">
-                        </div>
+
+                    <div class="work-card play-card-5" data-play-card data-polaroid
+                         data-title="Motion Graphics"
+                         data-detail="In-progress motion frames — coming soon.">
+                        <div class="card-content"
+                             style="background: linear-gradient(135deg, #fff5e8, #f5dcc4);"></div>
                     </div>
-                    <div class="work-card play-card-6" data-parallax="-0.06" data-title="Interface Behaviors">
-                        <div class="card-content" style="background-color: #e9ecef;">
-                        </div>
+
+                    <div class="work-card play-card-6" data-play-card
+                         data-title="Interface Behaviors"
+                         data-detail="Tiny interaction loops I prototype on the side.">
+                        <div class="card-content"
+                             style="background: linear-gradient(135deg, #e6efe9, #cddcd2);"></div>
                     </div>
-                    <div class="work-card play-card-7" data-parallax="0.08" data-title="Brand Elements">
-                        <div class="card-content" style="background-color: #dee2e6;">
-                        </div>
+
+                    <div class="work-card play-card-7" data-play-card data-polaroid
+                         data-title="Brand Elements"
+                         data-detail="Marks, type, and stickers from past explorations.">
+                        <div class="card-content"
+                             style="background: linear-gradient(135deg, #f0e8f5, #d8c8e0);"></div>
                     </div>
                 </div>
             </div>
         </section>
 
-
-
-
-        <div data-site-footer></div>
+        <div data-site-footer="minimal"></div>
     </main>
 
+    <!-- Play card popout — FLIP container transform target. The card clone is
+         injected here on click and animated to fill .play-popout__stage; closing
+         reverses the animation back to the card's original grid rect. -->
+    <div class="play-popout" id="play-popout" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="play-popout-title">
+        <div class="play-popout__backdrop" data-popout-close></div>
+        <div class="play-popout__stage" data-popout-stage></div>
+        <div class="play-popout__caption">
+            <h3 class="play-popout__title" id="play-popout-title"></h3>
+            <p class="play-popout__detail"></p>
+        </div>
+        <button class="play-popout__close" type="button" data-popout-close aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
 
     <!-- Project Modal Overlay -->
 
