@@ -1,12 +1,3 @@
-@font-face {
-    font-family: 'Delikaat';
-    src: url('asset/DelikaatW00-BoldItalic.woff2') format('woff2'),
-         url('asset/DelikaatW00-BoldItalic.woff') format('woff');
-    font-weight: bold;
-    font-style: italic;
-    font-display: swap;
-}
-
 :root {
     --bg-color: #fcfbf9;
     --bg-light: #fff;
@@ -56,8 +47,10 @@
 
     /* Global vertical lift applied to the hero. Because the body dot grid is
        anchored off --hero-nav-h, this same value is subtracted from the body
-       background-position so the hero ruler and body dots stay in lockstep. */
-    --hero-lift: 56px;
+       background-position so the hero ruler and body dots stay in lockstep.
+       Positive values lift the hero up; negative values push it down within
+       the first viewport so the content sits closer to the visual centre. */
+    --hero-lift: -24px;
 
     /* Shared ruler color (used by .hero-v2 AND navbar guides). Kept on :root
        so the navbar, which lives outside .hero-v2, can read the same token. */
@@ -728,214 +721,6 @@ html.cs-incoming body {
 }
 
 /* =========================================================
-   SUNLIT LIGHT SYSTEM (sunlit.place style)
-   Pure CSS window-blind shadow effect
-   ========================================================= */
-
-/* 
-body {
-    background: linear-gradient(85deg, var(--bg-light), var(--bg-light2));
-}
-
-.sunlit-container {
-    position: fixed;
-    width: 100vw;
-    perspective: 50vw;
-    transform: rotate(-20deg);
-    transition: transform 1.2s ease-out;
-    z-index: 0;
-    pointer-events: none;
-}
-
-.shutters {
-    display: flex;
-    flex-direction: column;
-    transform-style: preserve-3d;
-    transition: transform 1.8s ease-in-out;
-}
-
-.shutter {
-    position: fixed;
-    right: 0;
-    width: 80vw;
-    border-left: 100vw solid var(--shadow-color);
-    border-top: 10px solid transparent;
-    border-bottom: 10px solid transparent;
-    background: linear-gradient(200deg, var(--shadow-color), var(--shadow-transition) 30%, transparent);
-    filter: blur(6px);
-    transform: translate(12vw) rotateY(4deg);
-    transition: top 1.6s cubic-bezier(0.22, 1, 0.36, 1),
-        height 1.6s cubic-bezier(0.22, 1, 0.36, 1),
-        border-color 4s cubic-bezier(0.4, 0, 0.2, 1),
-        background 4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.vertical-shutter {
-    position: fixed;
-    top: 0;
-    right: 30vw;
-    width: 24px;
-    height: 100vh;
-    background: var(--shadow-color);
-    filter: blur(6px);
-    z-index: 0;
-    pointer-events: none;
-    transition: background 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.progressive-blur {
-    position: fixed;
-    pointer-events: none;
-    z-index: 5;
-    width: 100vh;
-    height: 100vw;
-    top: calc(50vh - 50vw);
-    left: calc(50vw - 100vh);
-    margin: 0;
-    transform: rotate(90deg);
-}
-
-.progressive-blur::before,
-.progressive-blur::after,
-.progressive-blur>div {
-    position: fixed;
-    inset: 0;
-}
-
-.progressive-blur::before {
-    content: "";
-    backdrop-filter: blur(0.5px);
-    -webkit-backdrop-filter: blur(0.5px);
-    mask: linear-gradient(180deg, transparent 0%, #000 12.5%, #000 25%, transparent 37.5%);
-    -webkit-mask: linear-gradient(180deg, transparent 0%, #000 12.5%, #000 25%, transparent 37.5%);
-    z-index: 1;
-}
-
-.progressive-blur>div:nth-of-type(1) {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    mask: linear-gradient(180deg, transparent 12.5%, #000 25%, #000 37.5%, transparent 50%);
-    -webkit-mask: linear-gradient(180deg, transparent 12.5%, #000 25%, #000 37.5%, transparent 50%);
-    z-index: 2;
-}
-
-.progressive-blur>div:nth-of-type(2) {
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    mask: linear-gradient(180deg, transparent 25%, #000 37.5%, #000 50%, transparent 62.5%);
-    -webkit-mask: linear-gradient(180deg, transparent 25%, #000 37.5%, #000 50%, transparent 62.5%);
-    z-index: 3;
-}
-
-.progressive-blur>div:nth-of-type(3) {
-    backdrop-filter: blur(50px);
-    -webkit-backdrop-filter: blur(50px);
-    mask: linear-gradient(180deg, transparent 37.5%, #000 50%, #000 62.5%, transparent 75%);
-    -webkit-mask: linear-gradient(180deg, transparent 37.5%, #000 50%, #000 62.5%, transparent 75%);
-    z-index: 4;
-}
-
-.progressive-blur>div:nth-of-type(4) {
-    backdrop-filter: blur(100px);
-    -webkit-backdrop-filter: blur(100px);
-    mask: linear-gradient(180deg, transparent 50%, #000 62.5%, #000 75%, transparent 87.5%);
-    -webkit-mask: linear-gradient(180deg, transparent 50%, #000 62.5%, #000 75%, transparent 87.5%);
-    z-index: 5;
-}
-
-.progressive-blur>div:nth-of-type(5) {
-    backdrop-filter: blur(100px);
-    -webkit-backdrop-filter: blur(100px);
-    mask: linear-gradient(180deg, transparent 62.5%, #000 75%, #000 87.5%, transparent);
-    -webkit-mask: linear-gradient(180deg, transparent 62.5%, #000 75%, #000 87.5%, transparent);
-    z-index: 6;
-}
-
-.progressive-blur>div:nth-of-type(6) {
-    backdrop-filter: blur(100px);
-    -webkit-backdrop-filter: blur(100px);
-    mask: linear-gradient(180deg, transparent 75%, #000 87.5%, #000);
-    -webkit-mask: linear-gradient(180deg, transparent 75%, #000 87.5%, #000);
-    z-index: 7;
-}
-
-.progressive-blur::after {
-    content: "";
-    backdrop-filter: blur(100px);
-    -webkit-backdrop-filter: blur(100px);
-    mask: linear-gradient(180deg, transparent 87.5%, #000);
-    -webkit-mask: linear-gradient(180deg, transparent 87.5%, #000);
-    z-index: 8;
-}
-
-.blur-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: linear-gradient(85deg, var(--bg-light2), var(--bg-light2) 20%, transparent);
-    z-index: 6;
-    pointer-events: none;
-}
-
-.night-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: var(--bg-night);
-    opacity: 0;
-    transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: -1;
-    pointer-events: none;
-}
-
-body.night-mode .night-overlay {
-    opacity: 1;
-}
-
-.grain {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 10;
-    pointer-events: none;
-    filter: brightness(120%) sepia(50%);
-}
-
-.grain::before {
-    content: "";
-    position: fixed;
-    top: -10rem;
-    left: -10rem;
-    width: calc(100% + 20rem);
-    height: calc(100% + 20rem);
-    background-image: url('https://upload.wikimedia.org/wikipedia/commons/5/5c/Image_gaussian_noise_example.png');
-    opacity: 0.12;
-    pointer-events: none;
-    animation: noise 1s steps(2) infinite;
-}
-
-@keyframes noise {
-    0% { transform: translate3d(0, 2rem, 0); }
-    10% { transform: translate3d(-1rem, -2rem, 0); }
-    20% { transform: translate3d(-4rem, 1rem, 0); }
-    30% { transform: translate3d(4.5rem, -4.5rem, 0); }
-    40% { transform: translate3d(-1rem, 3.5rem, 0); }
-    50% { transform: translate3d(-4.5rem, -2rem, 0); }
-    60% { transform: translate3d(1rem, 3rem, 0); }
-    70% { transform: translate3d(3.5rem, -4rem, 0); }
-    80% { transform: translate3d(-4.5rem, 0.5rem, 0); }
-    90% { transform: translate3d(3rem, -2.5rem, 0); }
-    100% { transform: translate3d(-3.5rem, 0, 0); }
-}
-*/
-
-/* =========================================================
    LAYOUT & COMPONENTS
    ========================================================= */
 
@@ -1200,8 +985,8 @@ body.night-mode .night-overlay {
 
     display: block;
     width: 100%;
-    padding: 0 0 clamp(48px, 6vw, 80px);
-    overflow: hidden;
+    padding: 0;
+    overflow: visible;
 }
 
 .hero-v2__frame {
@@ -1581,21 +1366,21 @@ body.night-mode .dappled-leaf {
 }
 
 /* Left cluster — Figma coordinates on the 1440 canvas (hero frame origin) */
-.hero-v2__pixel--l1 { left: 199px; top: 298px; }
-.hero-v2__pixel--l2 { left: 229px; top: 328px; }
-.hero-v2__pixel--l3 { left: 259px; top: 298px; }
-.hero-v2__pixel--l4 { left: 259px; top: 358px; }
-.hero-v2__pixel--l5 { left: 289px; top: 388px; }
-.hero-v2__pixel--l6 { left: 199px; top: 388px; }
+.hero-v2__pixel--l1 { left: 199px; top: 298px; background: #FCC0CB; }
+.hero-v2__pixel--l2 { left: 229px; top: 328px; background: #D6DBF8; }
+.hero-v2__pixel--l3 { left: 259px; top: 298px; background: #F9E3D0; }
+.hero-v2__pixel--l4 { left: 259px; top: 358px; background: #BCF8D8; }
+.hero-v2__pixel--l5 { left: 289px; top: 388px; background: #F9B3E1; }
+.hero-v2__pixel--l6 { left: 199px; top: 388px; background: #BFE7FB; }
 .hero-v2__pixel--l7 { left: 229px; top: 358px; opacity: 0.55; }
 
 /* Right cluster */
-.hero-v2__pixel--r1 { left: 1099px; top: 268px; }
-.hero-v2__pixel--r2 { left: 1129px; top: 298px; }
-.hero-v2__pixel--r3 { left: 1159px; top: 358px; }
-.hero-v2__pixel--r4 { left: 1189px; top: 328px; }
-.hero-v2__pixel--r5 { left: 1159px; top: 268px; opacity: 0.55; }
-.hero-v2__pixel--r6 { left: 1099px; top: 358px; opacity: 0.4; }
+.hero-v2__pixel--r1 { left: 1099px; top: 268px; background: #BCF8D8; }
+.hero-v2__pixel--r2 { left: 1129px; top: 298px; background: #F9B3E1; }
+.hero-v2__pixel--r3 { left: 1189px; top: 358px; background: #BFE7FB; }
+.hero-v2__pixel--r4 { left: 1159px; top: 388px; background: #FDDABB; }
+.hero-v2__pixel--r5 { display: none; }
+.hero-v2__pixel--r6 { display: none; }
 
 /* Burst pixels spawned on hover (see initHeroPixelPop in script.js) */
 .hero-v2__pixel-burst {
@@ -1609,7 +1394,7 @@ body.night-mode .dappled-leaf {
    Driven by the shared --grid-scale so body dots + hero ruler move in lockstep. */
 @media (min-width: 769px) {
     .hero-v2 {
-        height: calc(var(--hero-v2-frame-h) * var(--grid-scale));
+        min-height: calc(var(--hero-v2-frame-h) * var(--grid-scale));
     }
     .hero-v2__frame {
         transform: scale(var(--grid-scale));
@@ -2046,16 +1831,29 @@ body.night-mode .hero-cta {
 /* Projects Wrapper Encapsulation */
 .projects-wrapper {
     position: relative;
-    background-color: #F9F8F6;
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    padding: calc(var(--surface-padding) * 1.8) 0 var(--surface-padding-bottom) 0;
+    padding: 0 0 var(--surface-padding-bottom) 0;
+}
+
+/* Tighter top spacing on the work section only (the hero sits right above it).
+   The shared .projects-section rule still applies to #beyond so its gap with
+   the projects section above is preserved. */
+#projects.projects-section {
+    padding-top: clamp(20px, 5vw, 40px);
 }
 
 .projects-wrapper .projects-header,
 .projects-wrapper .work-container.bento-grid {
     padding-left: var(--surface-padding);
     padding-right: var(--surface-padding);
+}
+
+/* Match the beyond section's content width to the work section's.
+   The work cards inherit an extra var(--surface-padding) inset from the
+   .projects-wrapper inner rule above; mirror that on the #beyond container
+   so the title and the stage card line up flush with the cards above. */
+#beyond > .container {
+    padding-left: calc(var(--layout-gutter) + var(--surface-padding));
+    padding-right: calc(var(--layout-gutter) + var(--surface-padding));
 }
 
 /* Beyond the Pixels Specifics */
@@ -2087,6 +1885,23 @@ body.night-mode .hero-cta {
     border: 1px solid rgba(0, 0, 0, 0.04);
     position: relative;
     overflow: hidden;
+}
+
+/* Quote overlay sitting in the empty left side of .beyond-pixels-stage,
+   vertically centred against the museum-stage column on the right. */
+.beyond-info-overlay {
+    position: absolute;
+    left: clamp(24px, 4vw, 56px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: clamp(240px, 30%, 360px);
+    margin: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.beyond-info-overlay .beyond-subtitle {
+    margin: 0;
 }
 
 .museum-stage {
@@ -2182,8 +1997,37 @@ body.night-mode .hero-cta {
 /* =========================================================
    FOOTER
    ========================================================= */
+
+/* Soft drifting dapple — body-level strip appended last so it always sits
+   at the very bottom of every page. The canvas is transparent; the page
+   background shows through everywhere outside the shadow, so the effect
+   reads as light pooling on the ground. Painted by
+   asset/dappled-footer-shader.js via the [data-dappled-footer] hook. */
+.dappled-footer {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 400px;
+    margin: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 5;
+}
+
+.dappled-footer__canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+@media (max-width: 760px) {
+    .dappled-footer {
+        height: 165px;
+    }
+}
+
 .site-footer {
-    padding: clamp(88px, 12vw, 148px) 0 48px;
+    padding: clamp(88px, 12vw, 148px) 0 0;
     position: relative;
     z-index: 20;
 }
@@ -2302,7 +2146,7 @@ body.night-mode .hero-cta {
 
 .footer-wordmark-shell {
     width: calc(100% + (2 * var(--layout-gutter)));
-    margin: clamp(54px, 8vw, 90px) 0 0 calc(-1 * var(--layout-gutter));
+    margin: 0 0 0 calc(-1 * var(--layout-gutter));
     overflow: hidden;
 }
 
@@ -2370,71 +2214,6 @@ body.night-mode .footer-wordmark img {
 .footer-meta-social svg {
     display: block;
 }
-
-/* =========================================================
-   Grassland strip — pixel-art banner pinned to the very end
-   of the footer. Sits outside `.container` so it can render
-   at native pixel size and overflow horizontally on narrow
-   viewports (html already has overflow-x:hidden).
-   ========================================================= */
-.footer-grassland {
-    margin-top: clamp(40px, 6vw, 72px);
-    margin-bottom: -48px;
-    display: flex;
-    justify-content: center;
-    overflow: visible;
-    pointer-events: none;
-}
-
-.footer-grassland img {
-    display: block;
-    flex-shrink: 0;
-    width: 1600px;
-    height: auto;
-    max-width: none;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    user-select: none;
-    transform: translateX(140px);
-}
-
-/* Pixel cloud clusters — positioned on the left and right edges
-   of the page, just above the grassland strip. Anchored to the
-   `.site-footer` (which is position:relative) so they follow
-   the footer regardless of the wordmark height above it. */
-.footer-cloud {
-    position: absolute;
-    bottom: 280px;
-    height: auto;
-    pointer-events: none;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    user-select: none;
-    z-index: 1;
-}
-
-.footer-cloud--right {
-    right: 0;
-    width: 240px;
-}
-
-.footer-cloud--left {
-    left: 0;
-    bottom: 240px;
-    width: 176px;
-}
-
-/* Lottiemon Wrapper Mascot (Commented Out)
-.wrapper-mascot {
-    position: absolute;
-    top: -193px;
-    right: 32px;
-    width: 280px;
-    height: 280px;
-    z-index: 10;
-    pointer-events: none;
-}
-*/
 
 /* Work Wall (Bento Grid) */
 .work-container.bento-grid {
@@ -2552,6 +2331,20 @@ body.webgl-cards #work-wall .work-card:focus-visible {
     z-index: 3;
 }
 
+#work-wall .work-card__center-image {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(54%, 240px);
+    max-height: 82%;
+    object-fit: contain;
+    transform: translate(-50%, -50%);
+    z-index: 4;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 #work-wall .card-content {
     transform: scale(1.02);
     transform-origin: center;
@@ -2649,376 +2442,247 @@ body.webgl-cards #work-wall .work-card:focus-visible {
 }
 
 /* =========================================================
-   PLAY PAGE — SCRAPBOOK CANVAS
+  PLAY PAGE — SCROLL CANVAS
    ---------------------------------------------------------
-   The grid is a fixed-aspect *canvas* with absolutely-
-   positioned children (cards + sticky notes), each at a
-   small rotation so the page reads like a pinboard. Per-
-   card position lives in .play-card-N rules below; rotation
-   is exposed as the --rot custom property so :hover can
-   compose its own scale on top without losing the rotation.
-   On narrow viewports the canvas collapses to a vertical
-   stack (see the @media block at the end of this section).
+   • body.play-canvas-layout locks scroll so the canvas owns
+     the entire viewport on this page only.
+   • .play-canvas is a fixed-size viewport. Wheel / trackpad /
+     touch scroll updates the virtual pan in initPlayCanvas().
+   • Cards (.play-card) sit on the world at fixed coords and
+     move with the scroll pan.
+   • Stickers ([data-play-sticker]) sit on the world too but
+     accept their own pointerdown so they drag independently;
+     positions persist via localStorage.
+   • Background dot + mesh grid is painted on .play-grid and
+     shifted with background-position while the pan is clamped
+     to the outermost cards plus large edge padding.
    ========================================================= */
-.play-bento-grid {
-    position: relative;
-    width: 100%;
-    max-width: 1180px;
-    margin: 32px auto 0;
-    aspect-ratio: 1180 / 1080;
-    /* reset legacy column flow */
-    columns: auto;
-    column-gap: 0;
-    height: auto;
+
+body.play-canvas-layout {
+    overflow: hidden;
+    height: 100vh;
 }
 
-.play-bento-grid .work-card {
+.play-page {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+.play-canvas {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: #fdfaf3;
+    cursor: default;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    z-index: 0;
+}
+
+body.night-mode .play-canvas {
+    background: #141412;
+}
+
+/* Layered architecture inside .play-canvas (back → front):
+     z=0  .play-grid     dots + mesh background
+     z=1  .play-overlay  viewport-pinned title + subtitle
+     z=2  .play-world    cards + stickers
+   The grid lives on its own element (sibling of .play-world) instead
+   of being baked into .play-world's background-image, so the title
+   can sit visually between the grid and the cards. JS translates
+   .play-world and shifts .play-grid's background-position from the
+   same virtual pan values so both layers stay aligned. */
+
+/* ── Grid background layer (z=0) ──────────────────────── */
+/* Fills the viewport and repeats inside the finite scroll bounds.
+   Background = two stacked layers:
+   1. Dot grid (radial-gradient — matches the homepage body grid).
+   2. Dashed grid-box lines every 90px (every 3rd dot), drawn as a
+      tiled 90×90 SVG with shape-rendering="crispEdges" and explicit
+      1px dashed strokes on the top + left edges of each cell. SVG is used
+      instead of repeating-linear-gradient because the gradient's
+      1px lines smear into invisibility in patches when the world
+      is GPU-translated by sub-pixel amounts (low alpha + bilinear
+      sampling). The SVG renders pixel-perfect under any DPR/zoom,
+      and applyPan() in script.js rounds the virtual pan offset to whole
+      pixels for the same reason.
+   Alignment note: the radial-gradient centres each dot at (15, 15)
+   within its 30×30 tile, so the line layer is shifted (15px, 15px)
+   via background-position so its rect edges land exactly on the
+   dot columns/rows at x = 15, 105, 195, … and y likewise.
+   pointer-events: none so it never blocks scroll/sticker drag. */
+.play-grid {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    will-change: background-position;
+    pointer-events: none;
+    background-color: transparent;
+    background-image:
+        /* Dots — match homepage body grid exactly */
+        radial-gradient(circle, #cfcfc4 1px, transparent 1px),
+        /* Dashed grid-box lines every 90px (every 3rd dot) */
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' shape-rendering='crispEdges'><path d='M0 .5H90M.5 0V90' fill='none' stroke='%23E3E3D6' stroke-width='1' stroke-dasharray='3 3'/></svg>");
+    background-size:
+        calc(var(--grid-unit) * var(--grid-scale)) calc(var(--grid-unit) * var(--grid-scale)),
+        calc(var(--grid-unit) * var(--grid-scale) * 3) calc(var(--grid-unit) * var(--grid-scale) * 3);
+    background-position:
+        0 0,
+        15px 15px;
+    background-repeat:
+        repeat,
+        repeat;
+}
+
+body.night-mode .play-grid {
+    background-image:
+        radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' shape-rendering='crispEdges'><path d='M0 .5H90M.5 0V90' fill='none' stroke='%23c1c1a5' stroke-opacity='.28' stroke-width='1' stroke-dasharray='3 3'/></svg>");
+}
+
+/* ── World layer (z=2) — only holds cards + stickers ──── */
+/* Transparent so the grid (z=0) and title overlay (z=1) behind it
+   remain visible wherever no card sits. Translated by the scroll pan
+   in applyPan(). */
+.play-world {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3000px;
+    height: 2000px;
+    z-index: 2;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    background: transparent;
+}
+
+/* ── Cards ────────────────────────────────────────────── */
+.play-card {
     position: absolute;
     margin: 0;
-    /* Rotation per card; --hover-scale composes on top so hover
-       can scale up without losing the tilt. */
     --rot: 0deg;
-    --hover-scale: 1;
-    transform: rotate(var(--rot)) scale(var(--hover-scale));
+    transform: rotate(var(--rot));
     transform-origin: center center;
-    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-                opacity 0.4s ease,
-                filter 0.4s ease,
-                box-shadow 0.4s ease;
-    will-change: transform, opacity;
     border-radius: 4px;
     overflow: hidden;
     background: #fdfaf3;
-    box-shadow: 0 14px 32px rgba(40, 28, 16, 0.14),
-                0 4px 10px rgba(40, 28, 16, 0.08);
-    cursor: pointer;
-    aspect-ratio: auto;
+    box-shadow:
+        0 14px 32px rgba(40, 28, 16, 0.14),
+        0 4px 10px rgba(40, 28, 16, 0.08);
+    pointer-events: auto;
 }
 
-.play-bento-grid .work-card .card-content {
+.play-card__media {
     width: 100%;
     height: 100%;
-    border-radius: inherit;
     background-size: cover;
     background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
+    pointer-events: none;
 }
 
-.play-bento-grid .work-card video {
+.play-card__media video {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-}
-
-/* Polaroid frame: thicker bottom border, off-white card stock.
-   The inner content uses an aspect ratio to keep the photo area
-   consistent across the various card sizes. */
-.play-bento-grid .work-card[data-polaroid] {
-    background: #fdfaf3;
-    padding: 12px 12px 32px;
-    border-radius: 2px;
-    box-shadow: 0 22px 44px rgba(40, 28, 16, 0.18),
-                0 4px 10px rgba(40, 28, 16, 0.08);
-}
-
-.play-bento-grid .work-card[data-polaroid] .card-content {
-    border-radius: 1px;
-    aspect-ratio: 1;
-}
-
-/* ── Per-card position + rotation. All values are percentages
-   of the canvas, which means the layout scales fluidly with
-   the container width. */
-.play-card-1 { --rot: -3deg; top: 4%;  left: 28%; width: 28%; aspect-ratio: 4 / 5; }
-.play-card-2 { --rot: 5deg;  top: 3%;  left: 62%; width: 18%; aspect-ratio: 1 / 1; }
-.play-card-3 { --rot: -4deg; top: 30%; left: 60%; width: 20%; aspect-ratio: 4 / 5; z-index: 3; }
-.play-card-4 { --rot: 4deg;  top: 30%; left: 5%;  width: 18%; aspect-ratio: 1 / 1; }
-.play-card-5 { --rot: -6deg; top: 50%; left: 32%; width: 18%; aspect-ratio: 4 / 5; z-index: 3; }
-.play-card-6 { --rot: 2deg;  top: 65%; left: 6%;  width: 28%; aspect-ratio: 4 / 3; }
-.play-card-7 { --rot: -2deg; top: 56%; left: 64%; width: 24%; aspect-ratio: 4 / 5; }
-
-/* ── Sticky notes ── */
-/* Decorative paper-square text labels. pointer-events:none so
-   they never intercept clicks on cards behind them. */
-.play-sticky {
-    position: absolute;
-    padding: 18px 20px;
-    font-family: 'Patrick Hand', 'Caveat', cursive;
-    font-size: clamp(0.95rem, 1.25vw, 1.2rem);
-    line-height: 1.3;
-    color: #1f1d28;
-    background: #fbc8db;
-    box-shadow: 0 12px 24px rgba(40, 28, 16, 0.14);
     pointer-events: none;
-    user-select: none;
-    --rot: 0deg;
-    transform: rotate(var(--rot));
-    transform-origin: center center;
-    z-index: 4;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    text-align: left;
 }
 
-.play-sticky em {
-    font-style: italic;
-    text-decoration: underline;
-    text-decoration-thickness: 1.5px;
-    text-underline-offset: 3px;
-}
-
-.play-sticky--pink   { background: #f9c1d7; }
-.play-sticky--yellow { background: #ffe39e; }
-.play-sticky--mint   { background: #c6efc8; }
-
-.play-sticky-1 { --rot: -5deg; top: 10%; left: 4%;  width: 18%; aspect-ratio: 1 / 1.1; font-size: clamp(1.1rem, 1.45vw, 1.45rem); }
-.play-sticky-2 { --rot: 8deg;  top: 24%; left: 48%; width: 11%; aspect-ratio: 1 / 1.15; font-size: clamp(0.95rem, 1.2vw, 1.2rem); padding: 14px 14px; }
-.play-sticky-3 { --rot: 3deg;  top: 70%; left: 38%; width: 24%; aspect-ratio: 1 / 0.7;  font-size: clamp(1.05rem, 1.4vw, 1.4rem); }
-
-/* ── Hover container transform ── */
-/* Hover unwinds the rotation on the focused card and gently dims
-   the rest. We keep this strictly :hover-driven so pointer-only
-   devices get the effect and touch devices stay calm. */
-@media (hover: hover) and (pointer: fine) {
-    .play-bento-grid:hover .work-card:not(:hover) {
-        --hover-scale: 0.97;
-        opacity: 0.6;
-        filter: saturate(0.85);
-    }
-
-    .play-bento-grid:hover .play-sticky {
-        opacity: 0.75;
-        filter: saturate(0.9);
-        transition: opacity 0.4s ease, filter 0.4s ease;
-    }
-
-    .play-bento-grid .work-card:hover {
-        --rot: 0deg;
-        --hover-scale: 1.05;
-        z-index: 8;
-        opacity: 1;
-        filter: none;
-        box-shadow: 0 30px 60px rgba(40, 28, 16, 0.25);
-    }
-}
-
-/* While the popout is open we suppress the hover transform on the source card
-   (it has its own FLIP animation running) and keep its siblings calm. */
-.play-bento-grid.is-popout-open .work-card,
-.play-bento-grid.is-popout-open:hover .work-card:not(:hover) {
-    --hover-scale: 1;
-    opacity: 1;
-    filter: none;
-}
-
-.play-bento-grid.is-popout-open .play-sticky {
-    opacity: 1;
-    filter: none;
-}
-
-.play-bento-grid [data-play-card].is-popout-source {
-    visibility: hidden;
-}
-
-/* Dark-mode tone tweak for sticky notes (keep them readable on
-   the warm-night background without losing their pop). */
-body.night-mode .play-sticky {
-    color: #1a1a1a;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-}
-body.night-mode .play-bento-grid .work-card,
-body.night-mode .play-bento-grid .work-card[data-polaroid] {
+body.night-mode .play-card {
     background: #f5efe2;
 }
 
-/* ── Mobile: collapse the canvas to a single-column stack ── */
-/* Below 760px we drop absolute positioning entirely and let the
-   cards + sticky notes flow vertically. Rotations are reduced
-   so nothing horizontally overflows the viewport. */
-@media (max-width: 760px) {
-    .play-bento-grid {
-        aspect-ratio: auto;
-        max-width: 420px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 28px;
-        padding: 8px;
-    }
-
-    .play-bento-grid .work-card,
-    .play-bento-grid .play-sticky {
-        position: relative;
-        top: auto !important;
-        left: auto !important;
-        width: 88% !important;
-        max-width: 360px;
-    }
-
-    /* Slightly smaller tilts on mobile so cards never clip. */
-    .play-card-1 { --rot: -2deg; }
-    .play-card-2 { --rot: 2deg; }
-    .play-card-3 { --rot: -2deg; }
-    .play-card-4 { --rot: 2deg; }
-    .play-card-5 { --rot: -2deg; }
-    .play-card-6 { --rot: 1.5deg; }
-    .play-card-7 { --rot: -1.5deg; }
-    .play-sticky-1 { --rot: -3deg; }
-    .play-sticky-2 { --rot: 4deg; }
-    .play-sticky-3 { --rot: 2deg; }
-
-    .play-sticky {
-        aspect-ratio: 1 / 0.55;
-        text-align: center;
-        justify-content: center;
-    }
-
-    /* Reorder so sticky notes break up the card flow nicely. */
-    .play-sticky-1 { order: 1; }
-    .play-card-1   { order: 2; }
-    .play-card-2   { order: 3; }
-    .play-sticky-2 { order: 4; }
-    .play-card-3   { order: 5; }
-    .play-card-4   { order: 6; }
-    .play-card-5   { order: 7; }
-    .play-sticky-3 { order: 8; }
-    .play-card-6   { order: 9; }
-    .play-card-7   { order: 10; }
+/* ── Stickers ────────────────────────────────────────── */
+.play-sticker {
+    position: absolute;
+    --rot: 0deg;
+    transform: rotate(var(--rot));
+    transform-origin: center center;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    z-index: 10;
+    filter: drop-shadow(0 8px 14px rgba(40, 28, 16, 0.18));
+    transition: filter 0.2s ease;
 }
 
-/* ===== Play Card Popout (FLIP) =====
-   Wraps the cloned card while it's animated from the grid rect to the centered
-   stage. .play-popout__stage is the *target* rect; the JS sets it to a tall
-   centered region, measures it, and animates the cloned card from the source
-   card's bounding rect into this rect. */
-.play-popout {
-    position: fixed;
-    inset: 0;
-    z-index: 1500;
+.play-sticker:hover {
+    filter: drop-shadow(0 12px 18px rgba(40, 28, 16, 0.26));
+}
+
+.play-sticker.is-dragging {
+    cursor: grabbing;
+    z-index: 50;
+    filter: drop-shadow(0 18px 28px rgba(40, 28, 16, 0.35));
+    transition: none;
+}
+
+.play-sticker img {
+    display: block;
+    width: 100%;
+    height: auto;
     pointer-events: none;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+    -webkit-user-drag: none;
 }
 
-.play-popout.is-open {
-    pointer-events: auto;
-    opacity: 1;
-    visibility: visible;
-    transition: opacity 0.4s ease, visibility 0s linear 0s;
-}
-
-.play-popout__backdrop {
+/* ── Centre title overlay ───────────────────────────── */
+/* Child of .play-canvas (sibling of .play-grid and .play-world).
+   Fills the canvas via inset: 0 (the canvas itself fills the viewport),
+   so flex-centring lands the title + subtitle in the middle of the
+   screen. Layered between the grid (z=0) and the world (z=2) so:
+     • the dot/mesh grid reads as a true background BEHIND the title;
+     • cards paint on TOP of the title — overlapping cards visually
+       obscure the text where they sit, and the title shows through
+       wherever no card covers it.
+   pointer-events: none so it never intercepts canvas scroll or sticker drag. */
+.play-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(15, 15, 13, 0.72);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    cursor: pointer;
-}
-
-.play-popout__stage {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: min(58vw, 520px);
-    height: min(78vh, 720px);
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-}
-
-.play-popout__caption {
-    position: absolute;
-    left: 50%;
-    bottom: clamp(28px, 6vh, 64px);
-    transform: translateX(-50%);
-    width: min(560px, 80vw);
-    text-align: center;
-    color: #fff;
-    opacity: 0;
-    transition: opacity 0.45s ease 0.2s, transform 0.45s ease 0.2s;
-    transform: translate(-50%, 12px);
-}
-
-.play-popout.is-open .play-popout__caption {
-    opacity: 1;
-    transform: translate(-50%, 0);
-}
-
-.play-popout__title {
-    margin: 0 0 8px;
-    font-family: 'Libre Baskerville', serif;
-    font-style: italic;
-    font-weight: 400;
-    font-size: clamp(1.5rem, 2.4vw, 2rem);
-    line-height: 1.2;
-    color: #fff;
-}
-
-.play-popout__detail {
-    margin: 0;
-    font-family: var(--font-sans);
-    font-size: 0.95rem;
-    line-height: 1.55;
-    color: rgba(255, 255, 255, 0.78);
-    letter-spacing: 0.01em;
-}
-
-.play-popout__close {
-    position: absolute;
-    top: clamp(16px, 3vw, 28px);
-    right: clamp(16px, 3vw, 28px);
-    width: 44px;
-    height: 44px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    font-size: 1.6rem;
-    line-height: 1;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s ease, transform 0.2s ease;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.play-popout__close:hover {
-    background: rgba(255, 255, 255, 0.22);
-    transform: scale(1.06);
-}
-
-/* The cloned card is fixed-positioned and animated via inline styles by
-   script.js. Keeping its visual chrome (radius, shadow) flush with the live
-   .work-card. */
-.play-popout__clone {
-    position: fixed;
-    margin: 0;
-    border-radius: 4px;
-    overflow: hidden;
-    background: #0f0f0d;
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.32);
-    transform-origin: top left;
-    will-change: top, left, width, height;
-    z-index: 1;
     pointer-events: none;
+    z-index: 1;
 }
 
-.play-popout__clone .card-content {
-    border-radius: inherit;
-    width: 100%;
-    height: 100%;
+.play-overlay__inner {
+    text-align: center;
+    padding: 0 24px;
+    max-width: 720px;
 }
+
+.play-overlay__title {
+    margin: 0 0 12px;
+    font-family: var(--font-serif);
+    font-style: normal;
+    font-weight: var(--type-serif-display-weight);
+    font-size: var(--type-serif-display-size);
+    line-height: var(--type-serif-display-leading);
+    letter-spacing: var(--type-serif-display-tracking);
+    color: #2a221a;
+}
+
+.play-overlay__subtitle {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: clamp(0.95rem, 1.1vw, 1.05rem);
+    letter-spacing: 0.02em;
+    color: rgba(42, 34, 26, 0.6);
+}
+
+body.night-mode .play-overlay__title    { color: #f0eadb; }
+body.night-mode .play-overlay__subtitle { color: rgba(240, 234, 219, 0.6); }
 
 @media (prefers-reduced-motion: reduce) {
-    .play-bento-grid [data-play-card],
-    .play-popout,
-    .play-popout__caption,
-    .play-popout__clone {
+    .play-sticker {
         transition-duration: 0s !important;
     }
 }
@@ -3245,18 +2909,6 @@ body.night-mode #work-wall .card-content::after {
     background: linear-gradient(180deg, rgba(5, 7, 10, 0.03) 0%, rgba(5, 7, 10, 0.16) 42%, rgba(5, 7, 10, 0.86) 100%);
 }
 
-body.night-mode .grain {
-    filter: invert(1) opacity(0.5);
-}
-
-body.night-mode .grain::before {
-    opacity: 0.06;
-}
-
-body.night-mode .vertical-shutter {
-    background: #0d0d0d;
-}
-
 body.night-mode .logo-img {
     filter: invert(1) brightness(1.8);
 }
@@ -3267,11 +2919,6 @@ body.night-mode .nav-item.is-active {
 
 body.night-mode .projects-title {
     color: #dcdcdc;
-}
-
-body.night-mode .projects-wrapper {
-    background-color: #0d0d0d;
-    border-color: rgba(255, 255, 255, 0.04);
 }
 
 body.night-mode .beyond-pixels-stage {
@@ -3346,8 +2993,8 @@ body.night-mode .about-visual-caption {
 }
 
 @media (max-width: 1024px) {
-    /* (The play page now uses an absolute scrapbook canvas with its
-       own responsive collapse below 760px — no column override here.) */
+    /* The play page owns the full viewport with an absolute scroll canvas,
+       so the home-page column overrides below should not target it. */
 
     .hero-section--figma {
         min-height: auto;
@@ -3358,8 +3005,8 @@ body.night-mode .about-visual-caption {
         transform: scale(1.05);
     }
 
-    /* Reset only the HOME page work cards — the play page keeps its
-       absolute scrapbook layout until the 760px collapse below. */
+    /* Reset only the HOME page work cards; Play cards use their own
+       absolute scroll-canvas layout. */
     #work-wall .work-card {
         width: 100% !important;
         left: 0 !important;
@@ -3380,10 +3027,6 @@ body.night-mode .about-visual-caption {
 
     .fold {
         height: 240px;
-    }
-
-    .blur-overlay {
-        background: linear-gradient(75deg, var(--bg-light2), var(--bg-light2) 45%, transparent);
     }
 
     .footer-cta-shell {
@@ -4886,9 +4529,8 @@ body.night-mode .cs-cta:hover { background: #fff; }
         padding-right: 0 !important;
     }
 
-    /* (The play page collapses to its own single-column stack
-       inside the .play-bento-grid section — no column override
-       needed here.) */
+    /* The play page uses its own scroll canvas, so no mobile column
+       override is needed here. */
 
     .work-container.bento-grid,
     .pajelly-cs-grid {
@@ -5059,7 +4701,7 @@ body.night-mode .cs-cta:hover { background: #fff; }
     }
 
     .footer-wordmark-shell {
-        margin-top: 48px;
+        margin-top: 0;
     }
 
     .footer-wordmark {

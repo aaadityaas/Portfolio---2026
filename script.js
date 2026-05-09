@@ -1,91 +1,3 @@
-/*
-// =============================================
-// Sunlit Light System (sunlit.place style)
-// Generates window-blind shadow bars via JS
-// =============================================
-
-const shuttersEl = document.getElementById('shutters');
-const sunlitContainer = document.getElementById('sunlit-container');
-const nightOverlay = document.getElementById('night-overlay');
-
-let isNight = false;
-let screenWidth = window.innerWidth;
-let screenHeight = window.innerHeight;
-let shutterElements = []; // Store references to shutter divs
-
-// Calculate shutter count
-function getShutterCount() {
-    return Math.ceil(screenHeight / 36);
-}
-
-// Create the initial shutter DOM elements
-function createShutters() {
-    if (!shuttersEl) return;
-    shuttersEl.innerHTML = '';
-    shutterElements = [];
-
-    const count = getShutterCount();
-    for (let i = 0; i < count; i++) {
-        const div = document.createElement('div');
-        div.className = 'shutter';
-        shuttersEl.appendChild(div);
-        shutterElements.push(div);
-    }
-
-    // Apply initial positions (no transition on first paint)
-    updateShutterPositions(false);
-}
-
-// Update positions/sizes of existing shutter elements
-// If `animate` is true, CSS transitions will handle the animation
-function updateShutterPositions(animate = true) {
-    const shutterHeight = screenWidth < 600 ? 42 : 56;
-    const shutterGap = screenWidth < 600 ? 16 : 8;
-    const totalHeight = shutterHeight + shutterGap;
-    const stagger = 0.01 * screenWidth;
-
-    const multiplier = isNight ? 1.15 : 1;
-    const height = isNight ? 20 : shutterHeight;
-    const count = shutterElements.length;
-
-    // Stagger delay per bar (cascading blind roll effect)
-    const delayPerBar = 0.015; // 15ms between each bar
-
-    shutterElements.forEach((div, i) => {
-        const top = i * totalHeight * multiplier - 300;
-        const left = stagger * i;
-
-        if (animate) {
-            // Apply staggered delay — bars cascade from top to bottom
-            div.style.transitionDelay = `${i * delayPerBar}s`;
-        } else {
-            // Instant reposition on resize — no transitions
-            div.style.transition = 'none';
-            div.style.transitionDelay = '0s';
-        }
-
-        div.style.top = `${top}px`;
-        div.style.left = `-${left}px`;
-        div.style.height = `${height}px`;
-    });
-
-    // Re-enable transitions after instant reposition
-    if (!animate) {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                shutterElements.forEach(div => {
-                    div.style.transition = '';
-                    div.style.transitionDelay = '0s';
-                });
-            });
-        });
-    }
-}
-
-// Initialize shutters on load
-createShutters();
-*/
-
 const THEME_STORAGE_KEY = 'portfolio-theme';
 
 function applyStoredTheme() {
@@ -135,6 +47,7 @@ const headerMount = document.querySelector('[data-site-header]');
 if (headerMount) {
     const currentPage = headerMount.getAttribute('data-page') || '';
     const isActive = page => currentPage === page ? ' is-active' : '';
+    const resumeUrl = 'https://drive.google.com/file/d/1e9EJH8wygKwAtqdljxzznRefkSE4_Ee4/view?usp=drive_link';
 
     headerMount.innerHTML = `
         <header class="navbar">
@@ -151,7 +64,7 @@ if (headerMount) {
                     <a href="index.html#work" class="nav-item${isActive('home')}">work</a>
                     <a href="play.html" class="nav-item${isActive('play')}">play</a>
                     <a href="about.html" class="nav-item${isActive('about')}">about me</a>
-                    <a href="resume.html" class="nav-item${isActive('resume')}">resume</a>
+                    <a href="${resumeUrl}" class="nav-item${isActive('resume')}" target="_blank" rel="noopener noreferrer">resume</a>
                     <button type="button" class="theme-toggle" id="theme-toggle" role="switch" aria-checked="false" aria-label="Switch to dark mode">
                         <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -176,7 +89,7 @@ if (headerMount) {
                 <a href="index.html" class="nav-item">home</a>
                 <a href="play.html" class="nav-item">play</a>
                 <a href="about.html" class="nav-item">about me</a>
-                <a href="resume.html" class="nav-item">resume</a>
+                <a href="${resumeUrl}" class="nav-item" target="_blank" rel="noopener noreferrer">resume</a>
                 <a href="contact.html" class="nav-item">contact</a>
             </div>
         </header>
@@ -186,28 +99,13 @@ if (headerMount) {
 
 const footerMounts = document.querySelectorAll('[data-site-footer]');
 
-// Shared scenery (clouds + grassland) that appears on every page that mounts a
-// footer. Lives outside the `.container` so it can overflow the page width.
-const footerSceneryHtml = `
-    <img class="footer-cloud footer-cloud--left" src="asset/cloud%20left.png" alt="" aria-hidden="true">
-    <img class="footer-cloud footer-cloud--right" src="asset/cloud%20+%20sun.png" alt="" aria-hidden="true">
-
-    <div class="footer-grassland" aria-hidden="true">
-        <img src="asset/grassland%20footer.png" alt="">
-    </div>
-`;
-
 footerMounts.forEach(mount => {
     const variant = mount.getAttribute('data-site-footer');
 
     if (variant === 'minimal') {
-        // Used on every page except the homepage — only the clouds + grassland
-        // scenery, no CTA / sticky note / copyright row.
-        mount.innerHTML = `
-            <footer class="site-footer site-footer--minimal">
-                ${footerSceneryHtml}
-            </footer>
-        `;
+        // Used on every page except the homepage. The pixel scenery that used
+        // to live here has been removed; the slot is intentionally left empty
+        // so existing markup keeps validating without rendering anything.
         return;
     }
 
@@ -276,11 +174,27 @@ footerMounts.forEach(mount => {
                     </span>
                 </div>
             </div>
-
-            ${footerSceneryHtml}
         </footer>
     `;
 });
+
+// Drifting dapple band — always the very last element on the page so it
+// reads as soft sunlight pooling on the ground beneath everything else.
+// Painted by asset/dappled-footer-shader.js, which discovers this
+// container via the [data-dappled-footer] hook regardless of script load
+// order.
+(function ensureDappledFooter() {
+    // Pages with body[data-no-dappled-footer] (e.g. the play canvas) own the
+    // viewport and don't want a footer band injected. Bail out for those.
+    if (document.body && document.body.hasAttribute('data-no-dappled-footer')) return;
+    if (document.querySelector('[data-dappled-footer]')) return;
+    const band = document.createElement('div');
+    band.className = 'dappled-footer';
+    band.setAttribute('data-dappled-footer', '');
+    band.setAttribute('aria-hidden', 'true');
+    band.innerHTML = '<canvas class="dappled-footer__canvas"></canvas>';
+    document.body.appendChild(band);
+})();
 
 /*
 // --- Layout Toggle Logic ---
@@ -636,7 +550,6 @@ if (topContainer && centerContainer && bottomContainer) {
     // Delay start to let images load for accurate scrollHeight
     setTimeout(tick, 500);
 
-    // Mouse Interaction (Removed per request)
 }
 
 // --- Camera Interaction ---
@@ -651,88 +564,6 @@ if (heroCamera) {
         }
     });
 }
-
-/**
- * Hero hover motion — ported from `mwg_000` (Made With GSAP tutorial 000).
- * Uses bundled `asset/InertiaPlugin.min.js` + same delta / inertia / rotate timeline pattern.
- * @see https://madewithgsap.com/effects/tutorial000
- */
-(function initHeroMwg000Inertia() {
-    const HERO_GSAP_INERTIA_ENABLED = false;
-    if (!HERO_GSAP_INERTIA_ENABLED) return;
-    if (typeof gsap === 'undefined' || typeof InertiaPlugin === 'undefined') return;
-
-    const root = document.querySelector('.hero-figma__canvas');
-    if (!root) return;
-
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const coarsePointer = window.matchMedia('(pointer: coarse)');
-    if (reducedMotion.matches) return;
-
-    gsap.registerPlugin(InertiaPlugin);
-
-    let oldX = 0;
-    let oldY = 0;
-    let deltaX = 0;
-    let deltaY = 0;
-
-    root.addEventListener('mouseenter', (e) => {
-        oldX = e.clientX;
-        oldY = e.clientY;
-        deltaX = 0;
-        deltaY = 0;
-    });
-
-    root.addEventListener('mousemove', (e) => {
-        deltaX = e.clientX - oldX;
-        deltaY = e.clientY - oldY;
-        oldX = e.clientX;
-        oldY = e.clientY;
-    });
-
-    function playMwgTimeline(target) {
-        gsap.killTweensOf(target);
-
-        const tl = gsap.timeline({
-            onComplete: () => {
-                tl.kill();
-            },
-        });
-        tl.timeScale(1.2);
-
-        tl.to(target, {
-            inertia: {
-                x: {
-                    velocity: deltaX * 30,
-                    end: 0,
-                },
-                y: {
-                    velocity: deltaY * 30,
-                    end: 0,
-                },
-            },
-        });
-        tl.fromTo(
-            target,
-            { rotation: 0 },
-            {
-                duration: 0.4,
-                rotation: (Math.random() - 0.5) * 30,
-                yoyo: true,
-                repeat: 1,
-                ease: 'power1.inOut',
-            },
-            '<'
-        );
-    }
-
-    root.querySelectorAll('.hero-figma__media').forEach((mediaEl) => {
-        mediaEl.addEventListener('mouseenter', () => {
-            if (reducedMotion.matches || coarsePointer.matches) return;
-            playMwgTimeline(mediaEl);
-        });
-    });
-})();
 
 /**
  * About page — “More of me”: when a <video> has a <source> (or src), play on hover.
@@ -911,228 +742,297 @@ if (heroCamera) {
 
 
 /* ----------------------------------------------------------------------------
- * Play page — Bento Card Popout (FLIP container transform)
+ * Play page — Infinite Scroll Canvas + Stickers
  *
- * Mounts on /play.html. Each [data-play-card] in #play-wall behaves like:
- *   • Hover  → CSS-only "container transform" (hovered card scales up,
- *              siblings squeeze + dim — see .play-bento-grid styles).
- *   • Click  → clone the card, FLIP-animate it from its grid rect into the
- *              centered .play-popout__stage, fade in the caption (data-title +
- *              data-detail). Backdrop / × / Esc reverses the animation back
- *              into the source card's rect, then removes the clone.
+ * Mounts on /play.html. Wires up:
+ *   • Canvas scroll: wheel / trackpad / touch scroll updates a virtual pan.
+ *     .play-world translates with that pan while .play-grid shifts its
+ *     background-position from the same pan values, so the grid stays aligned
+ *     to world coordinates. The pan is clamped to the outermost card bounds
+ *     plus generous edge padding, so the canvas has intentional endpoints.
+ *   • Card layout: each .play-card reads data-x/y/w/h/rot in world coords
+ *     and gets left/top/width/height/--rot applied at mount.
+ *   • Sticker drag: each [data-play-sticker] handles its own pointerdown so
+ *     it moves independently of the canvas pan. Positions persist via
+ *     localStorage (key: play-sticker-positions, JSON map of
+ *     data-sticker-id → {x, y}) so reload preserves the user arrangement.
+ *   • Initial pan centres the world's content cluster (~1500, 1000) in the
+ *     viewport, then clamps into the finite canvas bounds.
  *
- * The original card stays in the DOM (visibility: hidden via .is-popout-source)
- * so the grid layout doesn't shift while the popout is open.
- *
- * No-ops on every other page because #play-popout / #play-wall aren't there.
+ * No-ops on every other page (the [data-play-canvas] hook isn't there).
  * ------------------------------------------------------------------------- */
-(function initPlayBentoPopout() {
-    const grid = document.getElementById('play-wall');
-    const popout = document.getElementById('play-popout');
-    if (!grid || !popout) return;
+(function initPlayCanvas() {
+    const canvas = document.querySelector('[data-play-canvas]');
+    const world = document.querySelector('[data-play-world]');
+    // Grid is a sibling of .play-world that paints the dots + mesh background.
+    // It pans in lockstep with the world so the grid stays anchored to world
+    // coordinates. Optional — page still works if the element is absent.
+    const grid = document.querySelector('[data-play-grid]');
+    if (!canvas || !world) return;
 
-    const stage = popout.querySelector('[data-popout-stage]');
-    const titleEl = popout.querySelector('.play-popout__title');
-    const detailEl = popout.querySelector('.play-popout__detail');
-    if (!stage || !titleEl || !detailEl) return;
+    const STORAGE_KEY = 'play-sticker-positions';
+    const INITIAL_WORLD_CENTER_X = 1500;
+    const INITIAL_WORLD_CENTER_Y = 1000;
+    const MIN_EDGE_PADDING = 260;
+    const MAX_EDGE_PADDING = 520;
+    const EDGE_PADDING_RATIO = 0.45;
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const TWEEN_MS = 520;     // matches the CSS transition timing
-    const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
-
-    let activeCard = null;    // the source .work-card
-    let clone = null;         // the lifted clone
-    let isOpen = false;
-    let isAnimating = false;
-
-    /* Build a clone of the source card, set position: fixed at the source's
-       on-screen rect, and append it to the popout. The clone keeps its own
-       <video>/<img> alive so playback continues seamlessly. */
-    function buildClone(card) {
-        const c = card.cloneNode(true);
-        c.classList.add('play-popout__clone');
-        c.removeAttribute('data-play-card');
-        c.removeAttribute('id');
-        // cloneNode preserves attributes but not the muted IDL state on <video>.
-        // Re-apply so the clone autoplays in browsers that block sound.
-        c.querySelectorAll('video').forEach((v) => {
-            v.muted = true;
-            v.setAttribute('muted', '');
-            v.setAttribute('playsinline', '');
-            const p = v.play();
-            if (p && typeof p.catch === 'function') p.catch(() => {});
-        });
-        return c;
+    /* Set left / top / width / height / --rot / z-index from data-* attrs.
+       Used for both cards and stickers so the HTML stays declarative.
+       data-z is optional — when set it overrides the default DOM-order
+       stacking, letting overlapping cards layer intentionally. */
+    function applyWorldPlacement(el) {
+        const x = parseFloat(el.dataset.x || '0');
+        const y = parseFloat(el.dataset.y || '0');
+        const w = parseFloat(el.dataset.w || '0');
+        const h = parseFloat(el.dataset.h || '0');
+        const rot = parseFloat(el.dataset.rot || '0');
+        const z = parseFloat(el.dataset.z || '');
+        if (!Number.isNaN(x)) el.style.left = x + 'px';
+        if (!Number.isNaN(y)) el.style.top = y + 'px';
+        if (w) el.style.width = w + 'px';
+        if (h) el.style.height = h + 'px';
+        if (rot) el.style.setProperty('--rot', rot + 'deg');
+        if (!Number.isNaN(z)) el.style.zIndex = String(z);
     }
 
-    /* Read the source card's centre + unrotated size + transform.
-       Using offsetWidth/Height (not getBoundingClientRect's rotated bbox)
-       lets the clone start at exactly the visual position of the source
-       even when the source has a rotation applied. */
-    function readCardGeometry(card) {
-        const bbox = card.getBoundingClientRect();
-        return {
-            centerX: bbox.left + bbox.width / 2,
-            centerY: bbox.top + bbox.height / 2,
-            width: card.offsetWidth || bbox.width,
-            height: card.offsetHeight || bbox.height,
-            transform: getComputedStyle(card).transform || 'none',
-        };
+    /* localStorage helpers for sticker persistence */
+    function readSavedStickerPositions() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) { return {}; }
+    }
+    function saveStickerPosition(id, x, y) {
+        try {
+            const all = readSavedStickerPositions();
+            all[id] = { x, y };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+        } catch (e) {}
     }
 
-    /* Compute a stage rect that respects the source's aspect ratio,
-       fitting inside a max bounding box centred in the viewport. This
-       way a square source morphs to a square popout, a 4:5 to a 4:5,
-       etc., instead of always stretching to a fixed-aspect stage. */
-    function computeStageRect(card) {
-        const aspect = (card.offsetWidth || 1) / (card.offsetHeight || 1);
-        const maxW = Math.min(window.innerWidth * 0.6, 600);
-        const maxH = Math.min(window.innerHeight * 0.78, 760);
-        let w, h;
-        if (aspect >= maxW / maxH) {
-            w = maxW;
-            h = maxW / aspect;
-        } else {
-            h = maxH;
-            w = maxH * aspect;
+    // ── Card placements ──────────────────────────────────────────────
+    const cards = Array.from(canvas.querySelectorAll('.play-card'));
+    cards.forEach(applyWorldPlacement);
+
+    // ── Sticker placements (initial defaults, then layered saves) ────
+    const savedStickers = readSavedStickerPositions();
+    canvas.querySelectorAll('[data-play-sticker]').forEach((el) => {
+        applyWorldPlacement(el);
+        const id = el.dataset.stickerId;
+        if (id && savedStickers[id]) {
+            el.style.left = savedStickers[id].x + 'px';
+            el.style.top = savedStickers[id].y + 'px';
         }
+    });
+
+    // ── Canvas scroll pan ─────────────────────────────────────────────
+    let panX = 0;
+    let panY = 0;
+    let contentBounds = getContentBounds();
+
+    function positiveModulo(value, size) {
+        return ((value % size) + size) % size;
+    }
+
+    function normalizeWheelDelta(e) {
+        let dx = e.deltaX;
+        let dy = e.deltaY;
+        if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+            dx *= 16;
+            dy *= 16;
+        } else if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+            dx *= canvas.clientWidth;
+            dy *= canvas.clientHeight;
+        }
+        if (e.shiftKey && Math.abs(dx) < 1) {
+            dx = dy;
+            dy = 0;
+        }
+        return { dx, dy };
+    }
+
+    function readGridMetrics() {
+        if (!grid) return { dotStep: 30, lineStep: 90 };
+        const styles = window.getComputedStyle(grid);
+        const firstSize = styles.backgroundSize.split(',')[0] || '';
+        const dotStep = parseFloat(firstSize) || 30;
         return {
-            width: w,
-            height: h,
-            left: (window.innerWidth - w) / 2,
-            top: (window.innerHeight - h) / 2,
+            dotStep,
+            lineStep: dotStep * 3
         };
     }
 
-    function open(card) {
-        if (isOpen || isAnimating) return;
-        isAnimating = true;
-        activeCard = card;
-
-        // Fill the caption + announce.
-        titleEl.textContent = card.dataset.title || '';
-        detailEl.textContent = card.dataset.detail || '';
-
-        const from = readCardGeometry(card);
-        const target = computeStageRect(card);
-
-        // Resize the stage element to the target rect so screen-readers
-        // and any future hit-testing reflect the actual popout area.
-        stage.style.width = target.width + 'px';
-        stage.style.height = target.height + 'px';
-
-        clone = buildClone(card);
-        clone.style.position = 'fixed';
-        clone.style.top = (from.centerY - from.height / 2) + 'px';
-        clone.style.left = (from.centerX - from.width / 2) + 'px';
-        clone.style.width = from.width + 'px';
-        clone.style.height = from.height + 'px';
-        clone.style.transform = from.transform;
-        clone.style.transformOrigin = 'center center';
-        popout.appendChild(clone);
-
-        // Force layout so the browser sees the start state before we transition.
-        // eslint-disable-next-line no-unused-expressions
-        clone.getBoundingClientRect();
-
-        card.classList.add('is-popout-source');
-        grid.classList.add('is-popout-open');
-        popout.classList.add('is-open');
-        popout.setAttribute('aria-hidden', 'false');
-
-        const duration = reducedMotion.matches ? 0 : TWEEN_MS;
-        clone.style.transition = `top ${duration}ms ${EASE}, left ${duration}ms ${EASE}, width ${duration}ms ${EASE}, height ${duration}ms ${EASE}, transform ${duration}ms ${EASE}, box-shadow ${duration}ms ${EASE}`;
-
-        // Kick the morph on the next frame so the transition fires.
-        // Animate to the centred stage rect AND unwind the rotation.
-        requestAnimationFrame(() => {
-            clone.style.top = target.top + 'px';
-            clone.style.left = target.left + 'px';
-            clone.style.width = target.width + 'px';
-            clone.style.height = target.height + 'px';
-            clone.style.transform = 'none';
-        });
-
-        const finish = () => {
-            isAnimating = false;
-            isOpen = true;
-        };
-        if (duration === 0) finish();
-        else setTimeout(finish, duration);
+    function getEdgePadding() {
+        const shorterSide = Math.min(canvas.clientWidth, canvas.clientHeight);
+        return Math.max(
+            MIN_EDGE_PADDING,
+            Math.min(MAX_EDGE_PADDING, shorterSide * EDGE_PADDING_RATIO)
+        );
     }
 
-    function close() {
-        if (!isOpen || isAnimating || !clone || !activeCard) return;
-        isAnimating = true;
-        // Re-measure the source — viewport may have scrolled.
-        const back = readCardGeometry(activeCard);
-
-        const duration = reducedMotion.matches ? 0 : TWEEN_MS;
-        clone.style.transition = `top ${duration}ms ${EASE}, left ${duration}ms ${EASE}, width ${duration}ms ${EASE}, height ${duration}ms ${EASE}, transform ${duration}ms ${EASE}, box-shadow ${duration}ms ${EASE}, opacity ${duration}ms ${EASE}`;
-
-        popout.classList.remove('is-open');
-        popout.setAttribute('aria-hidden', 'true');
-
-        requestAnimationFrame(() => {
-            clone.style.top = (back.centerY - back.height / 2) + 'px';
-            clone.style.left = (back.centerX - back.width / 2) + 'px';
-            clone.style.width = back.width + 'px';
-            clone.style.height = back.height + 'px';
-            clone.style.transform = back.transform;
-            // The clone's box-shadow softens back to the card's resting shadow.
-            clone.style.boxShadow = '0 14px 32px rgba(40, 28, 16, 0.14)';
+    function getContentBounds() {
+        if (!cards.length) {
+            return {
+                minX: INITIAL_WORLD_CENTER_X,
+                minY: INITIAL_WORLD_CENTER_Y,
+                maxX: INITIAL_WORLD_CENTER_X,
+                maxY: INITIAL_WORLD_CENTER_Y
+            };
+        }
+        return cards.reduce((bounds, card) => {
+            const x = parseFloat(card.style.left) || 0;
+            const y = parseFloat(card.style.top) || 0;
+            const w = parseFloat(card.style.width) || card.offsetWidth || 0;
+            const h = parseFloat(card.style.height) || card.offsetHeight || 0;
+            return {
+                minX: Math.min(bounds.minX, x),
+                minY: Math.min(bounds.minY, y),
+                maxX: Math.max(bounds.maxX, x + w),
+                maxY: Math.max(bounds.maxY, y + h)
+            };
+        }, {
+            minX: Infinity,
+            minY: Infinity,
+            maxX: -Infinity,
+            maxY: -Infinity
         });
-
-        const finish = () => {
-            if (clone && clone.parentNode) clone.parentNode.removeChild(clone);
-            clone = null;
-            if (activeCard) activeCard.classList.remove('is-popout-source');
-            grid.classList.remove('is-popout-open');
-            activeCard = null;
-            isOpen = false;
-            isAnimating = false;
-        };
-        if (duration === 0) finish();
-        else setTimeout(finish, duration);
     }
 
-    // Card click → open
-    grid.querySelectorAll('[data-play-card]').forEach((card) => {
-        card.addEventListener('click', (e) => {
-            e.preventDefault();
-            open(card);
-        });
-        // Enable keyboard activation.
-        card.setAttribute('tabindex', '0');
-        card.setAttribute('role', 'button');
-        card.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                open(card);
-            }
-        });
-    });
+    function clampAxis(value, viewportSize, minContent, maxContent) {
+        const edgePadding = getEdgePadding();
+        const minPan = viewportSize - maxContent - edgePadding;
+        const maxPan = edgePadding - minContent;
+        if (minPan > maxPan) return (minPan + maxPan) / 2;
+        return Math.max(minPan, Math.min(maxPan, value));
+    }
 
-    // Backdrop / close button
-    popout.querySelectorAll('[data-popout-close]').forEach((el) => {
-        el.addEventListener('click', close);
-    });
+    function clampPan() {
+        panX = clampAxis(panX, canvas.clientWidth, contentBounds.minX, contentBounds.maxX);
+        panY = clampAxis(panY, canvas.clientHeight, contentBounds.minY, contentBounds.maxY);
+    }
 
-    // Esc to close
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && isOpen) close();
-    });
+    function applyPan() {
+        clampPan();
+        // Round to integer device-independent pixels so the GPU translates the
+        // world by whole pixels. The grid also uses these rounded values to
+        // shift background-position, keeping 1px mesh lines crisp.
+        const tx = Math.round(panX);
+        const ty = Math.round(panY);
+        const tf = `translate3d(${tx}px, ${ty}px, 0)`;
+        world.style.transform = tf;
+        if (grid) {
+            const { dotStep, lineStep } = readGridMetrics();
+            const dotX = positiveModulo(tx, dotStep);
+            const dotY = positiveModulo(ty, dotStep);
+            const lineOffset = dotStep / 2;
+            const lineX = positiveModulo(tx + lineOffset, lineStep);
+            const lineY = positiveModulo(ty + lineOffset, lineStep);
+            grid.style.backgroundPosition = `${dotX}px ${dotY}px, ${lineX}px ${lineY}px`;
+        }
+    }
 
-    // Re-measure & resnap if the viewport resizes while open. We don't want a
-    // stale rect to leave the clone offset, so just reflow it onto the stage.
+    function centerInitialPan() {
+        const vw = canvas.clientWidth;
+        const vh = canvas.clientHeight;
+        // Content cluster centre (rough centroid of card positions in HTML).
+        panX = vw / 2 - INITIAL_WORLD_CENTER_X;
+        panY = vh / 2 - INITIAL_WORLD_CENTER_Y;
+        applyPan();
+    }
+
+    centerInitialPan();
     window.addEventListener('resize', () => {
-        if (!isOpen || !clone) return;
-        const stageRect = stage.getBoundingClientRect();
-        clone.style.transition = 'none';
-        setRect(clone, stageRect);
-        // Force reflow then restore transition for a future close anim.
-        // eslint-disable-next-line no-unused-expressions
-        clone.getBoundingClientRect();
-        clone.style.transition = '';
+        contentBounds = getContentBounds();
+        applyPan();
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const { dx, dy } = normalizeWheelDelta(e);
+        // Natural scroll: scrolling down/right moves the world up/left,
+        // revealing content further down/right in world coordinates.
+        panX -= dx;
+        panY -= dy;
+        applyPan();
+    }, { passive: false });
+
+    let touchScrollActive = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartPanX = 0;
+    let touchStartPanY = 0;
+
+    canvas.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'touch') return;
+        if (e.target.closest('[data-play-sticker]')) return;
+        touchScrollActive = true;
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
+        touchStartPanX = panX;
+        touchStartPanY = panY;
+        try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        if (!touchScrollActive || e.pointerType !== 'touch') return;
+        e.preventDefault();
+        panX = touchStartPanX + (e.clientX - touchStartX);
+        panY = touchStartPanY + (e.clientY - touchStartY);
+        applyPan();
+    });
+
+    function endTouchScroll(e) {
+        if (!touchScrollActive || e.pointerType !== 'touch') return;
+        touchScrollActive = false;
+        try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+    canvas.addEventListener('pointerup', endTouchScroll);
+    canvas.addEventListener('pointercancel', endTouchScroll);
+
+    // ── Stickers (each manages its own drag) ─────────────────────────
+    canvas.querySelectorAll('[data-play-sticker]').forEach((sticker) => {
+        let dragActive = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragStartLeft = 0;
+        let dragStartTop = 0;
+
+        sticker.addEventListener('pointerdown', (e) => {
+            e.stopPropagation(); // sticker touch should drag the sticker, not scroll the canvas
+            dragActive = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragStartLeft = parseFloat(sticker.style.left) || 0;
+            dragStartTop = parseFloat(sticker.style.top) || 0;
+            sticker.classList.add('is-dragging');
+            try { sticker.setPointerCapture(e.pointerId); } catch (_) {}
+        });
+
+        sticker.addEventListener('pointermove', (e) => {
+            if (!dragActive) return;
+            // World scale is 1:1 (only translation), so pointer delta in
+            // screen px maps directly to world-coord delta on the sticker.
+            sticker.style.left = (dragStartLeft + e.clientX - dragStartX) + 'px';
+            sticker.style.top  = (dragStartTop  + e.clientY - dragStartY) + 'px';
+        });
+
+        const endDrag = (e) => {
+            if (!dragActive) return;
+            dragActive = false;
+            sticker.classList.remove('is-dragging');
+            try { sticker.releasePointerCapture(e.pointerId); } catch (_) {}
+            const id = sticker.dataset.stickerId;
+            if (id) {
+                saveStickerPosition(
+                    id,
+                    parseFloat(sticker.style.left) || 0,
+                    parseFloat(sticker.style.top) || 0
+                );
+            }
+        };
+        sticker.addEventListener('pointerup', endDrag);
+        sticker.addEventListener('pointercancel', endDrag);
     });
 })();
+
