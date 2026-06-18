@@ -147,16 +147,23 @@
     let spawnAccumulator = 0;
     let nextSpawnIn = SPAWN_EVERY;
     let documentVisible = !document.hidden;
+    let rafId = 0;
+
+    function requestTick() {
+        if (rafId || !documentVisible || reducedMotion.matches) return;
+        lastT = performance.now();
+        rafId = requestAnimationFrame(tick);
+    }
 
     document.addEventListener('visibilitychange', () => {
         documentVisible = !document.hidden;
         if (documentVisible) {
-            lastT = performance.now();  // avoid huge dt after wake
-            requestAnimationFrame(tick);
+            requestTick();
         }
     });
 
     function tick(nowMs) {
+        rafId = 0;
         if (!documentVisible) return;
         if (reducedMotion.matches) {
             // Clear any lingering leaves (e.g. user toggled mid-shower).
@@ -235,17 +242,23 @@
             }
         }
 
-        requestAnimationFrame(tick);
+        if (hovering || leaves.length) {
+            rafId = requestAnimationFrame(tick);
+        }
     }
 
-    requestAnimationFrame(tick);
+    window.addEventListener('pointermove', () => {
+        if (hovering || leaves.length) requestTick();
+    }, { passive: true });
 
     // If the user toggles reduce-motion mid-session, restart cleanly.
     if (typeof reducedMotion.addEventListener === 'function') {
         reducedMotion.addEventListener('change', () => {
             if (!reducedMotion.matches) {
-                lastT = performance.now();
-                requestAnimationFrame(tick);
+                requestTick();
+            } else if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = 0;
             }
         });
     }

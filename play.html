@@ -5,22 +5,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AS | Designer Portfolio</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=play-layout-editor-3">
     <!-- Premium Web Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Inter:ital,wght@0,100..900;1,100..900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
         rel="stylesheet">
-    <!-- Preload grain image -->
-    <link rel="preload" href="https://upload.wikimedia.org/wikipedia/commons/5/5c/Image_gaussian_noise_example.png"
-        as="image">
     <!-- GSAP for animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js"></script>
 </head>
 
-<body data-no-dappled-footer class="play-canvas-layout">
+<body class="play-canvas-layout">
+
+    <!-- Full-screen preload until window + media/iframes are ready (portfolio-loader-* in style.css + script.js) -->
+    <div id="portfolio-loader" class="portfolio-loader" aria-live="polite" aria-busy="true" role="status"
+        aria-valuetext="Loading portfolio">
+        <div class="portfolio-loader__grid" aria-hidden="true"></div>
+        <div class="portfolio-loader__stage">
+            <div class="portfolio-loader__orbit">
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+            </div>
+        </div>
+    </div>
     <script>
         try { if (localStorage.getItem('portfolio-theme') === 'dark') document.body.classList.add('night-mode'); } catch (e) {}
     </script>
@@ -33,6 +45,7 @@
                0. .play-grid    — dots + mesh grid
                1. .play-overlay — viewport-pinned title + subtitle
                2. .play-world   — cards + stickers
+               6. .play-mascot  — fixed bottom-edge mascot
              The grid lives on its own sibling element (instead of being
              baked into .play-world's background) so the title can be
              layered between the grid and the cards. initPlayCanvas() in
@@ -58,6 +71,51 @@
                  finite, based on the outermost cards plus large padding. -->
             <div class="play-grid" data-play-grid></div>
 
+            <div class="play-editor" data-play-editor aria-label="Play layout editor">
+                <button class="play-editor__toggle" type="button" data-play-editor-toggle aria-pressed="false">
+                    Edit layout
+                </button>
+                <div class="play-editor__panel" data-play-editor-panel hidden>
+                    <div class="play-editor__header">
+                        <span class="play-editor__title" data-play-editor-current>No selection</span>
+                        <span class="play-editor__status" data-play-editor-status>Unsaved</span>
+                    </div>
+                    <div class="play-editor__fields" aria-label="Selected item values">
+                        <label class="play-editor__field">
+                            <span>X</span>
+                            <input type="number" step="1" data-play-editor-input="x" inputmode="numeric">
+                        </label>
+                        <label class="play-editor__field">
+                            <span>Y</span>
+                            <input type="number" step="1" data-play-editor-input="y" inputmode="numeric">
+                        </label>
+                        <label class="play-editor__field">
+                            <span>Rotate</span>
+                            <input type="number" step="1" data-play-editor-input="rot" inputmode="numeric">
+                        </label>
+                        <label class="play-editor__field">
+                            <span>Layer</span>
+                            <input type="number" step="1" data-play-editor-input="z" inputmode="numeric">
+                        </label>
+                    </div>
+                    <div class="play-editor__actions" aria-label="Layout actions">
+                        <button type="button" data-play-editor-action="rotate-left">Rotate -5</button>
+                        <button type="button" data-play-editor-action="rotate-right">Rotate +5</button>
+                        <button type="button" data-play-editor-action="send-back">Back</button>
+                        <button type="button" data-play-editor-action="bring-front">Front</button>
+                        <button type="button" data-play-editor-action="save">Save</button>
+                        <button type="button" data-play-editor-action="copy">Copy JSON</button>
+                        <button type="button" data-play-editor-action="reset">Reset</button>
+                    </div>
+                    <p class="play-editor__hint">Drag an item to move it. Use the round handle to rotate. Arrow keys nudge the selection.</p>
+                </div>
+            </div>
+
+            <div class="play-editor-selection" data-play-editor-selection hidden aria-hidden="true">
+                <span class="play-editor-selection__line"></span>
+                <button class="play-editor-selection__handle" type="button" data-play-editor-rotate-handle aria-label="Rotate selected item"></button>
+            </div>
+
             <!-- Layer 1: title overlay — viewport-pinned (inset: 0 fills
                  the canvas which itself fills the viewport). Sits ABOVE
                  the grid (so the grid reads as a true background) and
@@ -80,7 +138,10 @@
                      Sizes are intentionally per-card so you can later make
                      specific cards small / big by editing data-w and data-h. -->
                 <div class="play-card"
-                     data-x="835" data-y="1270" data-w="190" data-h="246" data-rot="-3">
+                     data-play-layout-id="zapp-add-money"
+                     data-x="816" data-y="1246" data-w="228" data-h="295" data-rot="-3"
+                     data-play-title="Add Balance Interaction for Zapp Account"
+                     data-play-description="A concept for making add-money feel more tangible, guided, and memorable inside the Zapp flow.">
                     <div class="play-card__media">
                         <video autoplay loop muted playsinline>
                             <source src="asset/zapp-add-money.mp4" type="video/mp4">
@@ -89,324 +150,226 @@
                     </div>
                 </div>
 
-                <div class="play-card"
-                     data-x="1925" data-y="1235" data-w="213" data-h="213" data-rot="4">
-                    <div class="play-card__media" style="background-image: url('asset/water.png');"></div>
+                <div class="play-card play-card--transparent"
+                     data-play-layout-id="sero"
+                     data-x="1904" data-y="1170" data-w="256" data-h="307" data-rot="4"
+                     data-play-title="Sero"
+                     data-play-description="A visual identity exploration focused on expressive form, color, and a distinctive digital presence.">
+                    <div class="play-card__media" style="background-image: url('asset/play_sero.png');"></div>
                 </div>
 
                 <!-- Top-center card. data-z="2" so if you nudge it to overlap
                      a sibling card it stays in front; in this layout it doesn't
                      overlap anything but the value documents intent. -->
                 <div class="play-card"
-                     data-x="1400" data-y="560" data-w="224" data-h="291" data-rot="-2" data-z="2">
+                     data-play-layout-id="flower-valley"
+                     data-x="1378" data-y="531" data-w="269" data-h="349" data-rot="-2" data-z="2"
+                     data-play-title="Flower Valley Memory"
+                     data-play-description="A postcard-like landscape study focused on softness, scale, and air.">
                     <div class="play-card__media" style="background-image: url('asset/flower%20valey.png');"></div>
                 </div>
 
                 <div class="play-card"
-                     data-x="1850" data-y="625" data-w="246" data-h="190" data-rot="5">
+                     data-play-layout-id="sunset-gradient"
+                     data-x="1826" data-y="606" data-w="295" data-h="228" data-rot="5"
+                     data-play-title="Sunset Gradient Capture"
+                     data-play-description="A color and timing study built around dusk light and slow tonal transitions.">
                     <div class="play-card__media" style="background-image: url('asset/sunset.png');"></div>
                 </div>
 
                 <!-- Middle-left card. data-z="1" — sits behind any data-z="2" card
                      it might overlap with after future repositioning. -->
                 <div class="play-card"
-                     data-x="840" data-y="932" data-w="224" data-h="286" data-rot="-4" data-z="1">
-                    <div class="play-card__media" style="background: linear-gradient(135deg, #fff5e8, #f5dcc4);"></div>
+                     data-play-layout-id="turnip"
+                     data-x="818" data-y="904" data-w="269" data-h="343" data-rot="-4" data-z="1"
+                     data-play-title="Turnip"
+                     data-play-description="A playful character illustration exploring expressive form, bold color, and personality.">
+                    <div class="play-card__media" style="background-image: url('asset/play_Turnip.png');"></div>
                 </div>
 
                 <div class="play-card"
-                     data-x="1413" data-y="1190" data-w="263" data-h="202" data-rot="2" data-z="1">
-                    <div class="play-card__media" style="background: linear-gradient(135deg, #e6efe9, #cddcd2);"></div>
+                     data-play-layout-id="type-36-days"
+                     data-x="1387" data-y="1170" data-w="316" data-h="242" data-rot="2" data-z="1"
+                     data-play-title="36 Days of Type"
+                     data-play-description="A typography experiment exploring letterforms, composition, and visual rhythm.">
+                    <div class="play-card__media" style="background-image: url('asset/play_36DaysofType.png');"></div>
                 </div>
 
                 <div class="play-card"
-                     data-x="1930" data-y="835" data-w="202" data-h="258" data-rot="-2" data-z="2">
-                    <div class="play-card__media" style="background: linear-gradient(135deg, #f0e8f5, #d8c8e0);"></div>
+                     data-play-layout-id="spin-the-wheel"
+                     data-x="1910" data-y="809" data-w="242" data-h="310" data-rot="-2" data-z="2"
+                     data-play-title="Spin the Wheel"
+                     data-play-description="A colorful interaction concept built around chance, motion, and playful anticipation.">
+                    <div class="play-card__media" style="background-image: url('asset/play_SpintheWheel.png');"></div>
                 </div>
 
-                <!-- Extra default cards spread around the scroll canvas.
-                     These are placeholders for future images/videos; replace
-                     the inline background on .play-card__media with your
-                     final asset as you add more Play content. -->
-                <div class="play-card"
-                     data-x="510" data-y="520" data-w="241" data-h="185" data-rot="6" data-z="1">
-                    <div class="play-card__media" style="background: radial-gradient(circle at 30% 30%, #fff8cc 0 14%, transparent 15%), linear-gradient(135deg, #f9e3d0, #fcc0cb 45%, #d6dbf8);"></div>
-                </div>
-
-                <div class="play-card"
-                     data-x="1035" data-y="300" data-w="202" data-h="269" data-rot="-5">
-                    <div class="play-card__media" style="background: linear-gradient(160deg, #eef7ff 0%, #bfe7fb 48%, #f9b3e1 100%);"></div>
-                </div>
-
-                <div class="play-card"
-                     data-x="1510" data-y="245" data-w="263" data-h="174" data-rot="3" data-z="1">
-                    <div class="play-card__media" style="background: linear-gradient(135deg, #fff2cf 0%, #fddabb 42%, #bcf8d8 100%);"></div>
-                </div>
-
-                <div class="play-card"
-                     data-x="2235" data-y="405" data-w="235" data-h="291" data-rot="-6">
-                    <div class="play-card__media" style="background: linear-gradient(180deg, #d6dbf8 0%, #f9e3d0 54%, #fff8ea 100%);"></div>
+                <div class="play-card play-card--stats"
+                     data-play-layout-id="gradient-texture"
+                     data-x="696" data-y="632" data-w="289" data-h="222" data-rot="6" data-z="1"
+                     data-play-title="Gradient Texture"
+                     data-play-description="A gradient and texture experiment exploring expressive color, depth, and visual reach."
+                     data-play-heart="1.1k" data-play-user="37.3k">
+                    <div class="play-card__media" style="background-image: url('asset/play_gradienttexture.png');"></div>
+                    <div class="play-card__confetti" aria-hidden="true">
+                        <img class="play-card__confetti-item play-card__confetti-item--heart"
+                             src="asset/play_gradinettexture_heart.png" alt="">
+                        <img class="play-card__confetti-item play-card__confetti-item--user"
+                             src="asset/play_gradinettexture_user.png" alt="">
+                    </div>
                 </div>
 
                 <div class="play-card"
-                     data-x="2350" data-y="1010" data-w="280" data-h="190" data-rot="5" data-z="1">
-                    <div class="play-card__media" style="background: linear-gradient(135deg, #bfe7fb 0%, #bcf8d8 48%, #f9e3d0 100%);"></div>
-                </div>
-
-                <div class="play-card"
-                     data-x="2115" data-y="1585" data-w="224" data-h="286" data-rot="-4">
-                    <div class="play-card__media" style="background: linear-gradient(145deg, #f9b3e1 0%, #d6dbf8 46%, #bfe7fb 100%);"></div>
-                </div>
-
-                <div class="play-card"
-                     data-x="1455" data-y="1660" data-w="274" data-h="196" data-rot="2" data-z="1">
-                    <div class="play-card__media" style="background: linear-gradient(135deg, #fffaf0 0%, #fddabb 35%, #fcc0cb 100%);"></div>
-                </div>
-
-                <div class="play-card"
-                     data-x="530" data-y="1580" data-w="252" data-h="190" data-rot="-7">
-                    <div class="play-card__media" style="background: linear-gradient(135deg, #bcf8d8 0%, #bfe7fb 45%, #d6dbf8 100%);"></div>
-                </div>
-
-                <div class="play-card"
-                     data-x="380" data-y="900" data-w="202" data-h="274" data-rot="4" data-z="1">
-                    <div class="play-card__media" style="background: linear-gradient(155deg, #fdf6e8 0%, #f9e3d0 40%, #fcc0cb 100%);"></div>
+                     data-play-layout-id="zakir"
+                     data-x="2132" data-y="1041" data-w="336" data-h="228" data-rot="5" data-z="1"
+                     data-play-title="Zakir"
+                     data-play-description="A portrait-led visual study balancing character, texture, and graphic composition.">
+                    <div class="play-card__media" style="background-image: url('asset/play_Zakir.png');"></div>
                 </div>
 
                 <!-- Stickers — individually draggable. Swap the <img src> to
                      change the sticker artwork. Each needs a unique data-sticker-id
                      so its position persists independently. -->
                 <div class="play-sticker"
-                     data-play-sticker data-sticker-id="stamp-1"
-                     data-x="1500" data-y="540" data-rot="-8" data-w="160">
-                    <img src="asset/stamp.png" alt="" draggable="false">
+                     data-play-sticker data-sticker-id="miracle-1"
+                     data-x="1500" data-y="540" data-rot="-8" data-w="220">
+                    <img src="asset/play_Miracle_sticker.png" alt="" draggable="false">
                 </div>
 
                 <div class="play-sticker"
-                     data-play-sticker data-sticker-id="note-1"
-                     data-x="940" data-y="1230" data-rot="10" data-w="170">
-                    <img src="asset/stticky%20note.png" alt="" draggable="false">
+                     data-play-sticker data-sticker-id="iterate-1"
+                     data-x="940" data-y="1230" data-rot="10" data-w="230">
+                    <img src="asset/play_Iterate_sticker.png" alt="" draggable="false">
                 </div>
+
+                <div class="play-sticker"
+                     data-play-sticker data-sticker-id="bored-mac-1"
+                     data-x="2180" data-y="780" data-rot="-7" data-w="150">
+                    <img src="asset/play_Bored%20MAC_sticker.png" alt="" draggable="false">
+                </div>
+
+                <div class="play-sticker"
+                     data-play-sticker data-sticker-id="closed-for-today-1"
+                     data-x="1160" data-y="1570" data-rot="8" data-w="155">
+                    <img src="asset/play_Closed%20for%20today_sticker.png" alt="" draggable="false">
+                </div>
+            </div>
+
+            <div class="play-detail" data-play-detail hidden aria-hidden="true">
+                <button class="play-detail__backdrop" type="button" data-play-detail-close
+                    aria-label="Close play detail"></button>
+
+                <div class="play-detail__stage" role="dialog" aria-modal="true"
+                    aria-labelledby="play-detail-title" aria-describedby="play-detail-description">
+                    <div class="play-detail__media-shell" data-play-detail-shell>
+                        <div class="play-detail__media" data-play-detail-media></div>
+                    </div>
+
+                    <div class="play-detail__copy">
+                        <div class="play-detail__title-pill" id="play-detail-title" data-play-detail-title></div>
+                        <div class="play-detail__body-bubble" id="play-detail-description"
+                            data-play-detail-description></div>
+                        <div class="play-detail__stats" data-play-detail-stats hidden></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Layer 6: fixed bottom-edge mascot. Robot body with eyes
+                 using the same moving pupil hooks as the original mascot. -->
+            <div class="play-mascot" data-play-mascot aria-hidden="true">
+                <span class="play-mascot__tooltip" aria-hidden="true">Take a look around</span>
+                <svg class="play-mascot__svg" viewBox="0 0 84.8945 81.584" role="img">
+                    <ellipse class="play-mascot__shadow" cx="42.45" cy="77" rx="32" ry="5"></ellipse>
+                    <g class="play-mascot__robot" data-name="robot eyes">
+                        <g filter="url(#playMascotBodyInner)">
+                            <path d="M2.16406 15.084H82.7334V71.584C82.7334 77.1068 78.2562 81.584 72.7334 81.584H12.1641C6.64122 81.584 2.16406 77.1068 2.16406 71.584V15.084Z" fill="url(#playMascotBodyGradient)" />
+                        </g>
+                        <g class="play-mascot__face" filter="url(#playMascotFaceInner)">
+                            <path d="M81.144 28.3841C80.9115 29.3388 80.0563 30.0107 79.0737 30.0107C78.105 30.0107 77.2582 30.6641 77.0125 31.6011L74.5056 41.1623C74.1909 42.3624 73.1064 43.1992 71.8658 43.1992C70.4946 43.1992 69.3363 44.2167 69.1595 45.5764L67.5018 58.3271C66.9835 62.3131 63.5877 65.2959 59.5682 65.2959H25.326C21.3066 65.2959 17.9107 62.3131 17.3924 58.3271L15.7347 45.5764C15.5579 44.2167 14.3996 43.1992 13.0284 43.1992C11.7878 43.1992 10.7033 42.3624 10.3886 41.1623L7.88132 31.5997C7.63586 30.6635 6.78982 30.0107 5.822 30.0107C4.84024 30.0107 3.98578 29.3394 3.7535 28.3855L2.33894 22.5764C1.40997 18.7614 4.29936 15.084 8.2258 15.084H76.6714C80.5978 15.084 83.4872 18.7614 82.5582 22.5764L81.144 28.3841Z" />
+                        </g>
+                        <g class="play-mascot__head">
+                            <path d="M2.85625 9.81826C3.5171 5.98025 6.84574 3.17578 10.7402 3.17578H74.1543C78.0488 3.17578 81.3774 5.98025 82.0383 9.81826L83.0819 15.879C84.0289 21.3791 79.7934 26.4062 74.2124 26.4062H10.6821C5.10111 26.4062 0.865609 21.3791 1.81266 15.879L2.85625 9.81826Z" fill="#D9D9D9" />
+                            <path d="M2.85625 9.81826C3.5171 5.98025 6.84574 3.17578 10.7402 3.17578H74.1543C78.0488 3.17578 81.3774 5.98025 82.0383 9.81826L83.0819 15.879C84.0289 21.3791 79.7934 26.4062 74.2124 26.4062H10.6821C5.10111 26.4062 0.865609 21.3791 1.81266 15.879L2.85625 9.81826Z" fill="url(#playMascotHeadGradient)" />
+                            <g filter="url(#playMascotCapInner)">
+                                <path d="M2.85625 6.64248C3.5171 2.80447 6.84574 0 10.7402 0H74.1543C78.0488 0 81.3774 2.80447 82.0383 6.64248L83.0819 12.7033C84.0289 18.2033 79.7934 23.2305 74.2124 23.2305H10.6821C5.10111 23.2305 0.865609 18.2033 1.81266 12.7033L2.85625 6.64248Z" fill="#EFF3FF" />
+                            </g>
+                        </g>
+
+                        <g class="play-mascot__eye" data-mascot-eye filter="url(#playMascotEyeInner)">
+                            <path class="play-mascot__pupil" data-mascot-pupil d="M28.1406 37.7339C28.1406 35.8173 29.6943 34.2637 31.6108 34.2637C33.5274 34.2637 35.0811 35.8173 35.0811 37.7339V42.645C35.0811 44.5616 33.5274 46.1152 31.6108 46.1152C29.6943 46.1152 28.1406 44.5616 28.1406 42.645V37.7339Z" />
+                        </g>
+
+                        <g class="play-mascot__eye" data-mascot-eye filter="url(#playMascotEyeInner)">
+                            <path class="play-mascot__pupil" data-mascot-pupil d="M49.8164 37.7339C49.8164 35.8173 51.3701 34.2637 53.2866 34.2637C55.2032 34.2637 56.7568 35.8173 56.7568 37.7339V42.645C56.7568 44.5616 55.2032 46.1152 53.2866 46.1152C51.3701 46.1152 49.8164 44.5616 49.8164 42.645V37.7339Z" />
+                        </g>
+                    </g>
+                    <defs>
+                        <filter id="playMascotBodyInner" x="2.16406" y="15.084" width="84.5693" height="70.5" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+                            <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                            <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+                            <feOffset dx="7" dy="4" />
+                            <feGaussianBlur stdDeviation="2" />
+                            <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+                            <feColorMatrix type="matrix" values="0 0 0 0 0.803922 0 0 0 0 0.835294 0 0 0 0 0.94902 0 0 0 1 0" />
+                            <feBlend mode="normal" in2="shape" result="effect1_innerShadow_1562_70504" />
+                        </filter>
+                        <filter id="playMascotFaceInner" x="-1.83594" y="12.084" width="86.569" height="56.2119" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+                            <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                            <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+                            <feOffset dx="2" dy="-3" />
+                            <feGaussianBlur stdDeviation="2" />
+                            <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+                            <feColorMatrix type="matrix" values="0 0 0 0 0.0704302 0 0 0 0 0.254902 0 0 0 0 0.389517 0 0 0 1 0" />
+                            <feBlend mode="normal" in2="shape" result="effect1_innerShadow_1562_70504" />
+                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+                            <feOffset dx="-7" dy="3" />
+                            <feGaussianBlur stdDeviation="2" />
+                            <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+                            <feColorMatrix type="matrix" values="0 0 0 0 0.0588235 0 0 0 0 0.219608 0 0 0 0 0.34902 0 0 0 1 0" />
+                            <feBlend mode="normal" in2="effect1_innerShadow_1562_70504" result="effect2_innerShadow_1562_70504" />
+                        </filter>
+                        <filter id="playMascotCapInner" x="-2.32023" y="-4" width="89.535" height="31.2305" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+                            <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                            <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+                            <feOffset dx="-5" dy="-4" />
+                            <feGaussianBlur stdDeviation="2" />
+                            <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+                            <feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 0.996078 0 0 0 0 0.988235 0 0 0 1 0" />
+                            <feBlend mode="normal" in2="shape" result="effect1_innerShadow_1562_70504" />
+                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+                            <feOffset dx="7" dy="4" />
+                            <feGaussianBlur stdDeviation="2" />
+                            <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+                            <feColorMatrix type="matrix" values="0 0 0 0 0.988235 0 0 0 0 0.941176 0 0 0 0 0.996078 0 0 0 1 0" />
+                            <feBlend mode="normal" in2="effect1_innerShadow_1562_70504" result="effect2_innerShadow_1562_70504" />
+                        </filter>
+                        <filter id="playMascotEyeInner" x="26" y="33" width="33" height="15" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+                            <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                            <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+                            <feOffset dy="1" />
+                            <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+                            <feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0" />
+                            <feBlend mode="normal" in2="shape" result="effect1_innerShadow_1562_70504" />
+                        </filter>
+                        <linearGradient id="playMascotBodyGradient" x1="2.16406" y1="24.2449" x2="82.7334" y2="76.3896" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#E5E9F8" />
+                            <stop offset="1" stop-color="#F2F4FC" />
+                        </linearGradient>
+                        <linearGradient id="playMascotHeadGradient" x1="82.0722" y1="15.8854" x2="79.1365" y2="34.5412" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#FFFCFF" />
+                            <stop offset="0.811178" stop-color="#C4CCE5" />
+                            <stop offset="1" stop-color="#778EC2" />
+                        </linearGradient>
+                    </defs>
+                </svg>
             </div>
         </div>
     </main>
 
-    <script src="script.js"></script>
-
-    <!-- Agentation: Visual feedback for AI agents (connects to http://localhost:4747) -->
-    <script>
-        (function () {
-            const ENDPOINT = 'http://localhost:4747';
-            const SESSION_KEY = 'agentation_session_id';
-            let sessionId = localStorage.getItem(SESSION_KEY);
-            let active = false;
-            let annotations = [];
-            let pendingEl = null;
-
-            // ── Create toolbar ──────────────────────────────────────────────
-            const toolbar = document.createElement('div');
-            toolbar.id = 'agentation-toolbar';
-            toolbar.style.cssText = `
-        position:fixed; bottom:20px; right:20px; z-index:99999;
-        display:flex; flex-direction:column; align-items:flex-end; gap:8px;
-        font-family:system-ui,sans-serif;
-      `;
-
-            const toggleBtn = document.createElement('button');
-            toggleBtn.title = 'Toggle Agentation';
-            toggleBtn.style.cssText = `
-        width:44px; height:44px; border-radius:50%; border:none; cursor:none;
-        background:#1a1a2e; color:#fff; font-size:18px; box-shadow:0 4px 20px rgba(0,0,0,.35);
-        display:flex; align-items:center; justify-content:center;
-        transition:transform .2s,background .2s;
-      `;
-            toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
-
-            const badge = document.createElement('span');
-            badge.style.cssText = `
-        position:absolute; top:-4px; right:-4px; background:#e74c3c; color:#fff;
-        font-size:10px; min-width:16px; height:16px; border-radius:8px;
-        display:none; align-items:center; justify-content:center; padding:0 3px;
-        font-weight:700;
-      `;
-            toggleBtn.style.position = 'relative';
-            toggleBtn.appendChild(badge);
-            toolbar.appendChild(toggleBtn);
-
-            document.body.appendChild(toolbar);
-
-            // ── Session init ─────────────────────────────────────────────────
-            async function initSession() {
-                try {
-                    const res = await fetch(`${ENDPOINT}/api/sessions`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: location.href, existingSessionId: sessionId })
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        sessionId = data.sessionId || data.id || sessionId;
-                        if (sessionId) {
-                            localStorage.setItem(SESSION_KEY, sessionId);
-                            console.log('[Agentation] Session started:', sessionId);
-                        }
-                    }
-                } catch (e) {
-                    // Server may not expose session endpoint — still functional locally
-                    sessionId = sessionId || ('local-' + Date.now());
-                    localStorage.setItem(SESSION_KEY, sessionId);
-                    console.log('[Agentation] Local session:', sessionId);
-                }
-            }
-
-            // ── Highlight hovered elements ───────────────────────────────────
-            let hovered = null;
-            const highlight = document.createElement('div');
-            highlight.style.cssText = `
-        position:fixed; pointer-events:none; z-index:99998;
-        border:2px solid #6c63ff; border-radius:4px; background:rgba(108,99,255,.08);
-        transition:all .1s ease; display:none;
-      `;
-            document.body.appendChild(highlight);
-
-            function showHighlight(el) {
-                const r = el.getBoundingClientRect();
-                highlight.style.display = 'block';
-                highlight.style.top = r.top + 'px';
-                highlight.style.left = r.left + 'px';
-                highlight.style.width = r.width + 'px';
-                highlight.style.height = r.height + 'px';
-            }
-
-            // ── Annotation popup ─────────────────────────────────────────────
-            const popup = document.createElement('div');
-            popup.style.cssText = `
-        position:fixed; z-index:999999; background:#fff; border-radius:12px;
-        box-shadow:0 8px 40px rgba(0,0,0,.22); padding:16px; width:280px;
-        display:none; flex-direction:column; gap:10px;
-        font-family:system-ui,sans-serif; font-size:13px; color:#111;
-      `;
-            popup.innerHTML = `
-        <div style="font-weight:600;font-size:14px;color:#1a1a2e">Add Annotation</div>
-        <textarea id="agentation-note" placeholder="Describe the issue or feedback…"
-          style="resize:vertical;min-height:80px;border:1.5px solid #e0e0e0;border-radius:8px;
-          padding:8px;font-size:13px;font-family:inherit;outline:none;"></textarea>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="agentation-cancel" style="padding:6px 14px;border:1.5px solid #ddd;
-            border-radius:8px;background:#fff;cursor:none;font-size:12px;">Cancel</button>
-          <button id="agentation-add" style="padding:6px 14px;border:none;border-radius:8px;
-            background:#6c63ff;color:#fff;cursor:none;font-size:12px;font-weight:600;">Add</button>
-        </div>
-      `;
-            document.body.appendChild(popup);
-
-            function getCSSPath(el) {
-                const parts = [];
-                while (el && el !== document.body) {
-                    let selector = el.tagName.toLowerCase();
-                    if (el.id) { selector += '#' + el.id; parts.unshift(selector); break; }
-                    const siblings = Array.from(el.parentNode?.children || []).filter(c => c.tagName === el.tagName);
-                    if (siblings.length > 1) selector += ':nth-child(' + (Array.from(el.parentNode.children).indexOf(el) + 1) + ')';
-                    parts.unshift(selector);
-                    el = el.parentNode;
-                }
-                return parts.join(' > ');
-            }
-
-            function openPopup(el, x, y) {
-                pendingEl = el;
-                popup.style.display = 'flex';
-                const pw = 280, ph = 180;
-                const left = Math.min(x + 10, window.innerWidth - pw - 10);
-                const top = Math.min(y + 10, window.innerHeight - ph - 10);
-                popup.style.left = left + 'px';
-                popup.style.top = top + 'px';
-                popup.querySelector('#agentation-note').value = '';
-                setTimeout(() => popup.querySelector('#agentation-note').focus(), 50);
-            }
-
-            popup.querySelector('#agentation-cancel').onclick = () => {
-                popup.style.display = 'none'; pendingEl = null;
-            };
-
-            popup.querySelector('#agentation-add').onclick = async () => {
-                const note = popup.querySelector('#agentation-note').value.trim();
-                if (!note) return;
-                const r = pendingEl.getBoundingClientRect();
-                const annotation = {
-                    id: 'a-' + Date.now(),
-                    comment: note,
-                    elementPath: getCSSPath(pendingEl),
-                    element: pendingEl.tagName.toLowerCase(),
-                    timestamp: Date.now(),
-                    x: ((r.left + r.width / 2) / window.innerWidth) * 100,
-                    y: r.top + window.scrollY,
-                    boundingBox: { x: r.left, y: r.top, width: r.width, height: r.height },
-                    url: location.href,
-                    sessionId
-                };
-                annotations.push(annotation);
-                updateBadge();
-                popup.style.display = 'none';
-                // Push to MCP server
-                try {
-                    await fetch(`${ENDPOINT}/api/annotations`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionId, annotation })
-                    });
-                } catch (e) { }
-                showPin(annotation);
-            };
-
-            // ── Annotation pins ──────────────────────────────────────────────
-            function showPin(ann) {
-                const pin = document.createElement('div');
-                pin.style.cssText = `
-          position:absolute; left:${ann.x}%; top:${ann.y}px; width:20px; height:20px;
-          background:#6c63ff; border-radius:50%; border:2px solid #fff;
-          box-shadow:0 2px 8px rgba(0,0,0,.25); cursor:none; z-index:99990;
-          display:flex; align-items:center; justify-content:center;
-          color:#fff; font-size:10px; font-weight:700;
-        `;
-                pin.title = ann.comment;
-                pin.textContent = annotations.indexOf(ann) + 1;
-                document.body.appendChild(pin);
-            }
-
-            function updateBadge() {
-                badge.textContent = annotations.length;
-                badge.style.display = annotations.length > 0 ? 'flex' : 'none';
-            }
-
-            // ── Toggle active mode ───────────────────────────────────────────
-            toggleBtn.onclick = () => {
-                active = !active;
-                toggleBtn.style.background = active ? '#6c63ff' : '#1a1a2e';
-                document.body.style.cursor = active ? 'crosshair' : '';
-                if (!active) { highlight.style.display = 'none'; popup.style.display = 'none'; }
-            };
-
-            document.addEventListener('mousemove', e => {
-                if (!active) return;
-                const el = document.elementFromPoint(e.clientX, e.clientY);
-                if (el && el !== hovered && !toolbar.contains(el) && !popup.contains(el) && el !== highlight) {
-                    hovered = el; showHighlight(el);
-                }
-            });
-
-            document.addEventListener('click', e => {
-                if (!active) return;
-                const el = document.elementFromPoint(e.clientX, e.clientY);
-                if (!el || toolbar.contains(el) || popup.contains(el) || el === highlight) return;
-                e.preventDefault(); e.stopPropagation();
-                openPopup(el, e.clientX, e.clientY);
-            }, true);
-
-            // ── Boot ─────────────────────────────────────────────────────────
-            initSession();
-        })();
-    </script>
+    <script src="script.js?v=play-layout-editor-3"></script>
 
 </body>
 

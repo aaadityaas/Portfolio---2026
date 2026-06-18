@@ -130,7 +130,7 @@
             //    Inside the rounded box coverage = 1.0, fading to 0.0 at corners.
             vec2 px = (vUv - 0.5) * uSizePx;
             vec2 halfBox = uSizePx * 0.5;
-            float d = sdRoundedBox(px, halfBox - uCornerRadius, uCornerRadius);
+            float d = sdRoundedBox(px, halfBox, uCornerRadius);
             float coverage = 1.0 - smoothstep(-0.5, 0.5, d);
 
             // 5. Premultiplied output at full strength — the shader IS the card,
@@ -220,7 +220,7 @@
                     uTime:         { value: 0 },
                     uAspectRatio:  { value: 1 },
                     uSizePx:       { value: new THREE.Vector2(100, 100) },
-                    uCornerRadius: { value: 4 }
+                    uCornerRadius: { value: 8 }
                 },
                 transparent: true,
                 depthTest: false,
@@ -240,6 +240,7 @@
 
         let canvasW = 0;
         let canvasH = 0;
+        let layoutDirty = true;
 
         function resize() {
             const rect = container.getBoundingClientRect();
@@ -262,6 +263,7 @@
             cardData.forEach((d) => {
                 d.material.uniforms.uAspectRatio.value = aspect;
             });
+            layoutDirty = true;
         }
 
         function layoutMeshes() {
@@ -279,6 +281,7 @@
         }
 
         function onPointerMove(e) {
+            if (!inView) return;
             const rect = container.getBoundingClientRect();
             const nx = (e.clientX - rect.left) / Math.max(1, rect.width);
             const ny = 1 - (e.clientY - rect.top) / Math.max(1, rect.height);
@@ -290,38 +293,57 @@
         window.addEventListener('pointermove', onPointerMove, { passive: true });
 
         if (typeof ResizeObserver !== 'undefined') {
-            const ro = new ResizeObserver(resize);
+            const ro = new ResizeObserver(() => {
+                resize();
+                layoutDirty = true;
+            });
             ro.observe(container);
+            cards.forEach(card => ro.observe(card));
         }
-        window.addEventListener('resize', resize, { passive: true });
+        window.addEventListener('resize', () => {
+            resize();
+            layoutDirty = true;
+        }, { passive: true });
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => { layoutDirty = true; }).catch(() => {});
+        }
         resize();
 
         let inView = true;
+        let rafId = 0;
         if ('IntersectionObserver' in window) {
             const io = new IntersectionObserver((entries) => {
-                entries.forEach((entry) => { inView = entry.isIntersecting; });
+                entries.forEach((entry) => {
+                    inView = entry.isIntersecting;
+                    if (inView && !rafId) {
+                        rafId = requestAnimationFrame(animate);
+                    }
+                });
             }, { rootMargin: '200px 0px' });
             io.observe(container);
         }
 
         function animate(timeMs) {
-            requestAnimationFrame(animate);
+            rafId = 0;
+            if (!inView) return;
 
             mouse.lerp(targetMouse, 0.1);
             velocity.lerp(targetVelocity, 0.08);
             targetVelocity.multiplyScalar(0.5);
-
-            if (!inView) return;
 
             const t = timeMs * 0.001;
             cardData.forEach((d) => {
                 d.material.uniforms.uTime.value = t;
             });
 
-            layoutMeshes();
+            if (layoutDirty) {
+                layoutMeshes();
+                layoutDirty = false;
+            }
             renderer.render(scene, camera);
+            rafId = requestAnimationFrame(animate);
         }
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
     }
 
     if (document.readyState === 'loading') {

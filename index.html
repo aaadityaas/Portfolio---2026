@@ -5,16 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AS | Designer Portfolio</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=beyond-illustrations-1">
     <!-- Premium Web Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Inter:ital,wght@0,100..900;1,100..900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
         rel="stylesheet">
-    <!-- Preload grain image -->
-    <link rel="preload" href="https://upload.wikimedia.org/wikipedia/commons/5/5c/Image_gaussian_noise_example.png"
-        as="image">
     <!-- Prefetch case study pages so the page-fade transition has the
          destination HTML already in cache when the user clicks a card.
          All four hero images are reused as homepage card backgrounds, so
@@ -25,7 +22,6 @@
     <link rel="prefetch" href="project-4.html" as="document">
     <!-- GSAP for animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js"></script>
     <!-- Three.js powers the translucent glass overlay above the work cards (asset/work-shader.js) -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <!-- Page-transition bootstrap: if we arrived here from a case
@@ -51,6 +47,22 @@
 </head>
 
 <body>
+
+    <!-- Full-screen preload until window + media/iframes are ready (portfolio-loader-* in style.css + script.js) -->
+    <div id="portfolio-loader" class="portfolio-loader" aria-live="polite" aria-busy="true" role="status"
+        aria-valuetext="Loading portfolio">
+        <div class="portfolio-loader__grid" aria-hidden="true"></div>
+        <div class="portfolio-loader__stage">
+            <div class="portfolio-loader__orbit">
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+            </div>
+        </div>
+    </div>
     <script>
         try { if (localStorage.getItem('portfolio-theme') === 'dark') document.body.classList.add('night-mode'); } catch (e) {}
     </script>
@@ -65,9 +77,13 @@
                     getComputedStyle(document.documentElement).getPropertyValue('--hero-v2-zoom')
                 ) || 0.9;
                 var scale;
-                if (vw <= 430) scale = 0.45;
-                else if (vw <= 768) scale = 0.55;
-                else scale = Math.min(1, vw / 1440) * zoom;
+                if (vw <= 768) {
+                    /* Mobile artboard is 360px wide; scale to viewport width
+                       (capped at 430 to match style.css's --hero-mobile-frame-w). */
+                    scale = Math.min(vw, 430) / 360;
+                } else {
+                    scale = Math.min(1, vw / 1440) * zoom;
+                }
                 document.documentElement.style.setProperty('--grid-scale', String(scale));
             }
             function setNavHeight() {
@@ -155,6 +171,14 @@
                         <span class="hero-v2__sticker hero-v2__sticker--square"></span>
                         <span class="hero-v2__sticker hero-v2__sticker--dot"></span>
                     </div>
+
+                    <!-- Hand-lettered credit note + curly arrow pointing up
+                         toward the headline. Lazy Dog face is loaded via
+                         @font-face at the top of style.css. -->
+                    <div class="hero-v2__credit" aria-label="Designing at Zeta">
+                        <span class="hero-v2__credit-text">Designing at Zeta</span>
+                        <img class="hero-v2__credit-arrow" src="asset/hero arrow .svg" alt="" aria-hidden="true" width="85" height="90">
+                    </div>
                 </div>
 
                 <img class="hero-v2__stamp" src="asset/hero-stamp.svg" alt="" aria-hidden="true" width="267" height="219">
@@ -176,9 +200,9 @@
                             data-link="/project-1.html" role="link" tabindex="0">
                             <div class="card-content" style="background-image: url('asset/grassland.png');">
                             </div>
-                            <img class="work-card__center-image" src="asset/Zapp%20Acount.png" alt="Zapp Account app screen" draggable="false">
+                            <div class="work-card__lottie" data-lottie-src="asset/zapp-account-lottie.json" aria-label="Zapp Account animated app screen"></div>
                             <div class="work-card__meta">
-                                <span class="work-card__label">Product Design</span>
+                                <span class="work-card__marker" aria-hidden="true"></span>
                                 <h3 class="work-card__title">Zapp Account</h3>
                                 <p class="work-card__desc">From PayZapp Wallet to a fintech product people actually want to use.</p>
                             </div>
@@ -188,8 +212,9 @@
                             data-link="/project-2.html" role="link" tabindex="0">
                             <div class="card-content" style="background-image: url('asset/water.png');">
                             </div>
+                            <div class="work-card__lottie work-card__lottie--bottom" data-lottie-src="asset/growth-lottie.json" aria-label="Growth Experiments animated campaign screen"></div>
                             <div class="work-card__meta">
-                                <span class="work-card__label">Campaign Design</span>
+                                <span class="work-card__marker" aria-hidden="true"></span>
                                 <h3 class="work-card__title">Growth Experiments — Zeta Pay</h3>
                                 <p class="work-card__desc">Four seasonal campaigns that turned transactions into moments.</p>
                             </div>
@@ -200,7 +225,7 @@
                             <div class="card-content" style="background-image: url('asset/flower valey.png');">
                             </div>
                             <div class="work-card__meta">
-                                <span class="work-card__label">Visual Exploration</span>
+                                <span class="work-card__marker" aria-hidden="true"></span>
                                 <h3 class="work-card__title">Butterfly Meadow</h3>
                                 <p class="work-card__desc">Whimsical landscape with fluttering butterflies in a sun-drenched field.</p>
                             </div>
@@ -211,7 +236,7 @@
                             <div class="card-content" style="background-image: url('asset/sunset.png');">
                             </div>
                             <div class="work-card__meta">
-                                <span class="work-card__label">App Revamp</span>
+                                <span class="work-card__marker" aria-hidden="true"></span>
                                 <h3 class="work-card__title">Now&amp;Me</h3>
                                 <p class="work-card__desc">App revamp, design system, and website &mdash; 9 months at Now&amp;Me.</p>
                             </div>
@@ -230,8 +255,17 @@
                 <div class="beyond-pixels-stage">
                     <div class="beyond-info-overlay">
                         <p class="beyond-subtitle">
-                            the world has so much to offer, go out and<br>explore them often
+                            I love embarking on exciting adventures, capturing countless moments through my camera,
+                            creating fun films, and occasionally jotting down my thoughts. Each experience is a new story
+                            waiting to be told!
                         </p>
+                        <p class="beyond-note">feel free to connect for cool projects</p>
+                        <div class="beyond-illustration" aria-hidden="true">
+                            <img class="beyond-illustration__camera" src="asset/beyond-illustration-camera.png?v=beyond-illustrations-1" alt="">
+                            <img class="beyond-illustration__film-roll" src="asset/beyond-illustration-film-roll.png?v=beyond-illustrations-1" alt="">
+                            <img class="beyond-illustration__flower" src="asset/beyond-illustration-flower.png?v=beyond-illustrations-1" alt="">
+                            <img class="beyond-illustration__notebook" src="asset/beyond-illustration-notebook.png?v=beyond-illustrations-1" alt="">
+                        </div>
                     </div>
                     <div class="museum-stage">
                         <div class="wrapper-3d" id="stage-wrapper">
@@ -264,226 +298,11 @@
     <!-- Project Modal Overlay -->
 
     <script src="asset/work-shader.js"></script>
-    <script src="asset/dappled-light-shader.js"></script>
+    <script src="asset/dappled-light-shader.js?v=restore-hero-shader-case-study"></script>
     <script src="asset/leaf-fall.js"></script>
     <script src="asset/ambient-audio.js"></script>
-    <script src="script.js"></script>
-    <script src="asset/dappled-footer-shader.js"></script>
-
-    <!-- Agentation: Visual feedback for AI agents (connects to http://localhost:4747) -->
-    <script>
-        (function () {
-            const ENDPOINT = 'http://localhost:4747';
-            const SESSION_KEY = 'agentation_session_id';
-            let sessionId = localStorage.getItem(SESSION_KEY);
-            let active = false;
-            let annotations = [];
-            let pendingEl = null;
-
-            // ── Create toolbar ──────────────────────────────────────────────
-            const toolbar = document.createElement('div');
-            toolbar.id = 'agentation-toolbar';
-            toolbar.style.cssText = `
-        position:fixed; bottom:20px; right:20px; z-index:99999;
-        display:flex; flex-direction:column; align-items:flex-end; gap:8px;
-        font-family:system-ui,sans-serif;
-      `;
-
-            const toggleBtn = document.createElement('button');
-            toggleBtn.title = 'Toggle Agentation';
-            toggleBtn.style.cssText = `
-        width:44px; height:44px; border-radius:50%; border:none; cursor:none;
-        background:#1a1a2e; color:#fff; font-size:18px; box-shadow:0 4px 20px rgba(0,0,0,.35);
-        display:flex; align-items:center; justify-content:center;
-        transition:transform .2s,background .2s;
-      `;
-            toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
-
-            const badge = document.createElement('span');
-            badge.style.cssText = `
-        position:absolute; top:-4px; right:-4px; background:#e74c3c; color:#fff;
-        font-size:10px; min-width:16px; height:16px; border-radius:8px;
-        display:none; align-items:center; justify-content:center; padding:0 3px;
-        font-weight:700;
-      `;
-            toggleBtn.style.position = 'relative';
-            toggleBtn.appendChild(badge);
-            toolbar.appendChild(toggleBtn);
-
-            document.body.appendChild(toolbar);
-
-            // ── Session init ─────────────────────────────────────────────────
-            async function initSession() {
-                try {
-                    const res = await fetch(`${ENDPOINT}/api/sessions`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: location.href, existingSessionId: sessionId })
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        sessionId = data.sessionId || data.id || sessionId;
-                        if (sessionId) {
-                            localStorage.setItem(SESSION_KEY, sessionId);
-                            console.log('[Agentation] Session started:', sessionId);
-                        }
-                    }
-                } catch (e) {
-                    // Server may not expose session endpoint — still functional locally
-                    sessionId = sessionId || ('local-' + Date.now());
-                    localStorage.setItem(SESSION_KEY, sessionId);
-                    console.log('[Agentation] Local session:', sessionId);
-                }
-            }
-
-            // ── Highlight hovered elements ───────────────────────────────────
-            let hovered = null;
-            const highlight = document.createElement('div');
-            highlight.style.cssText = `
-        position:fixed; pointer-events:none; z-index:99998;
-        border:2px solid #6c63ff; border-radius:4px; background:rgba(108,99,255,.08);
-        transition:all .1s ease; display:none;
-      `;
-            document.body.appendChild(highlight);
-
-            function showHighlight(el) {
-                const r = el.getBoundingClientRect();
-                highlight.style.display = 'block';
-                highlight.style.top = r.top + 'px';
-                highlight.style.left = r.left + 'px';
-                highlight.style.width = r.width + 'px';
-                highlight.style.height = r.height + 'px';
-            }
-
-            // ── Annotation popup ─────────────────────────────────────────────
-            const popup = document.createElement('div');
-            popup.style.cssText = `
-        position:fixed; z-index:999999; background:#fff; border-radius:12px;
-        box-shadow:0 8px 40px rgba(0,0,0,.22); padding:16px; width:280px;
-        display:none; flex-direction:column; gap:10px;
-        font-family:system-ui,sans-serif; font-size:13px; color:#111;
-      `;
-            popup.innerHTML = `
-        <div style="font-weight:600;font-size:14px;color:#1a1a2e">Add Annotation</div>
-        <textarea id="agentation-note" placeholder="Describe the issue or feedback…"
-          style="resize:vertical;min-height:80px;border:1.5px solid #e0e0e0;border-radius:8px;
-          padding:8px;font-size:13px;font-family:inherit;outline:none;"></textarea>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="agentation-cancel" style="padding:6px 14px;border:1.5px solid #ddd;
-            border-radius:8px;background:#fff;cursor:none;font-size:12px;">Cancel</button>
-          <button id="agentation-add" style="padding:6px 14px;border:none;border-radius:8px;
-            background:#6c63ff;color:#fff;cursor:none;font-size:12px;font-weight:600;">Add</button>
-        </div>
-      `;
-            document.body.appendChild(popup);
-
-            function getCSSPath(el) {
-                const parts = [];
-                while (el && el !== document.body) {
-                    let selector = el.tagName.toLowerCase();
-                    if (el.id) { selector += '#' + el.id; parts.unshift(selector); break; }
-                    const siblings = Array.from(el.parentNode?.children || []).filter(c => c.tagName === el.tagName);
-                    if (siblings.length > 1) selector += ':nth-child(' + (Array.from(el.parentNode.children).indexOf(el) + 1) + ')';
-                    parts.unshift(selector);
-                    el = el.parentNode;
-                }
-                return parts.join(' > ');
-            }
-
-            function openPopup(el, x, y) {
-                pendingEl = el;
-                popup.style.display = 'flex';
-                const pw = 280, ph = 180;
-                const left = Math.min(x + 10, window.innerWidth - pw - 10);
-                const top = Math.min(y + 10, window.innerHeight - ph - 10);
-                popup.style.left = left + 'px';
-                popup.style.top = top + 'px';
-                popup.querySelector('#agentation-note').value = '';
-                setTimeout(() => popup.querySelector('#agentation-note').focus(), 50);
-            }
-
-            popup.querySelector('#agentation-cancel').onclick = () => {
-                popup.style.display = 'none'; pendingEl = null;
-            };
-
-            popup.querySelector('#agentation-add').onclick = async () => {
-                const note = popup.querySelector('#agentation-note').value.trim();
-                if (!note) return;
-                const r = pendingEl.getBoundingClientRect();
-                const annotation = {
-                    id: 'a-' + Date.now(),
-                    comment: note,
-                    elementPath: getCSSPath(pendingEl),
-                    element: pendingEl.tagName.toLowerCase(),
-                    timestamp: Date.now(),
-                    x: ((r.left + r.width / 2) / window.innerWidth) * 100,
-                    y: r.top + window.scrollY,
-                    boundingBox: { x: r.left, y: r.top, width: r.width, height: r.height },
-                    url: location.href,
-                    sessionId
-                };
-                annotations.push(annotation);
-                updateBadge();
-                popup.style.display = 'none';
-                // Push to MCP server
-                try {
-                    await fetch(`${ENDPOINT}/api/annotations`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionId, annotation })
-                    });
-                } catch (e) { }
-                showPin(annotation);
-            };
-
-            // ── Annotation pins ──────────────────────────────────────────────
-            function showPin(ann) {
-                const pin = document.createElement('div');
-                pin.style.cssText = `
-          position:absolute; left:${ann.x}%; top:${ann.y}px; width:20px; height:20px;
-          background:#6c63ff; border-radius:50%; border:2px solid #fff;
-          box-shadow:0 2px 8px rgba(0,0,0,.25); cursor:none; z-index:99990;
-          display:flex; align-items:center; justify-content:center;
-          color:#fff; font-size:10px; font-weight:700;
-        `;
-                pin.title = ann.comment;
-                pin.textContent = annotations.indexOf(ann) + 1;
-                document.body.appendChild(pin);
-            }
-
-            function updateBadge() {
-                badge.textContent = annotations.length;
-                badge.style.display = annotations.length > 0 ? 'flex' : 'none';
-            }
-
-            // ── Toggle active mode ───────────────────────────────────────────
-            toggleBtn.onclick = () => {
-                active = !active;
-                toggleBtn.style.background = active ? '#6c63ff' : '#1a1a2e';
-                document.body.style.cursor = active ? 'crosshair' : '';
-                if (!active) { highlight.style.display = 'none'; popup.style.display = 'none'; }
-            };
-
-            document.addEventListener('mousemove', e => {
-                if (!active) return;
-                const el = document.elementFromPoint(e.clientX, e.clientY);
-                if (el && el !== hovered && !toolbar.contains(el) && !popup.contains(el) && el !== highlight) {
-                    hovered = el; showHighlight(el);
-                }
-            });
-
-            document.addEventListener('click', e => {
-                if (!active) return;
-                const el = document.elementFromPoint(e.clientX, e.clientY);
-                if (!el || toolbar.contains(el) || popup.contains(el) || el === highlight) return;
-                e.preventDefault(); e.stopPropagation();
-                openPopup(el, e.clientX, e.clientY);
-            }, true);
-
-            // ── Boot ─────────────────────────────────────────────────────────
-            initSession();
-        })();
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+    <script src="script.js?v=restore-loader-nav"></script>
 
 </body>
 

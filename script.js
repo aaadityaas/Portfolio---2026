@@ -14,6 +14,314 @@ function applyStoredTheme() {
 
 applyStoredTheme();
 
+const FOOTER_GRASS_IFRAME_SRCS = {
+    light: 'asset/grass-footer-app/dist/index.html',
+    dark: 'asset/grass-footer-dark-app/dist/index.html'
+};
+
+function getCurrentThemeName() {
+    return document.body.classList.contains('night-mode') ? 'dark' : 'light';
+}
+
+(function initPortfolioLoader() {
+    const el = document.getElementById('portfolio-loader');
+    if (!el || !document.body) return;
+
+    const prefersReducedMotion =
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const orbitEl = el.querySelector('.portfolio-loader__orbit');
+
+    /** One continuous ∞ chase; hue cycle still reads from nth-child CSS.
+     * DOM holds extra squares; animation only renders a short comet that grows in. */
+    const TRAIL_PIXEL_COUNT = 22;
+    /** How many pastel squares form the visible “snake” (rest stay hidden). */
+    const MAX_COMET_SEGMENTS = 10;
+    /** Param-gap between neighbouring squares on the ∞ (controls comet arc length). */
+    const COMET_PARAM_STEP = 0.098;
+    /** First fraction of each loop: reveal 1→MAX_COMET so the trail builds in order. */
+    const LOOP_TRAIL_BUILD_FRACTION = 0.28;
+    /** Last fraction: shorten tail → 1 leader so the cycle restarts cleanly. */
+    const LOOP_TRAIL_TAPER_FRACTION = 0.12;
+    /** τ = π places the leader on the left lobe; rising τ advances along the curve. */
+    const PATH_START_ANGLE = Math.PI;
+
+    function ensureTrailPixels(root) {
+        if (!root) return [];
+        while (root.querySelectorAll('.portfolio-loader__pixel').length < TRAIL_PIXEL_COUNT) {
+            const span = document.createElement('span');
+            span.className = 'portfolio-loader__pixel';
+            span.setAttribute('aria-hidden', 'true');
+            root.appendChild(span);
+        }
+        return Array.from(root.querySelectorAll('.portfolio-loader__pixel')).slice(0, TRAIL_PIXEL_COUNT);
+    }
+
+    const pixels = ensureTrailPixels(orbitEl);
+
+    document.body.classList.add('portfolio-loader-active');
+
+    function gridCellPx() {
+        const rootStyle = getComputedStyle(document.documentElement);
+        const u = parseFloat(rootStyle.getPropertyValue('--grid-unit')) || 30;
+        const s = parseFloat(rootStyle.getPropertyValue('--grid-scale')) || 1;
+        return u * s;
+    }
+
+    function infinityXY(tau, cx, cy, amplitude) {
+        const sin = Math.sin(tau);
+        const cos = Math.cos(tau);
+        const denom = 1 + sin * sin;
+        const scaleFactor = Math.SQRT2 * amplitude / denom;
+        return {
+            x: cx + scaleFactor * cos,
+            y: cy + scaleFactor * sin * cos
+        };
+    }
+
+    function pixelHalf(px) {
+        const wPx = px.offsetWidth
+            || parseFloat(getComputedStyle(px).width)
+            || 0;
+        if (wPx > 4) return wPx * 0.5;
+        return gridCellPx() * 0.85;
+    }
+
+    function wrapAngle(a) {
+        const TPI = Math.PI * 2;
+        let x = a % TPI;
+        if (x < 0) x += TPI;
+        return x;
+    }
+
+    function trailOpacity(idx, activeBehindHead) {
+        if (activeBehindHead <= 1) return 1;
+        return 1 - (0.52 * idx) / (activeBehindHead - 1);
+    }
+
+    let rafId = 0;
+    let animationGen = 0;
+
+    function fontsReadyPromise() {
+        if (document.fonts && document.fonts.ready)
+            return document.fonts.ready.then(() => {}).catch(() => {});
+        return Promise.resolve();
+    }
+
+    function windowLoadPromise() {
+        if (document.readyState === 'complete') return Promise.resolve();
+        return new Promise(resolve =>
+            window.addEventListener('load', () => resolve(), { once: true })
+        );
+    }
+
+    function domReadyPromise() {
+        if (document.readyState !== 'loading') return Promise.resolve();
+        return new Promise(resolve =>
+            document.addEventListener('DOMContentLoaded', () => resolve(), { once: true })
+        );
+    }
+
+    function imgReady(img) {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise(resolve => {
+            img.addEventListener('load', resolve, { once: true });
+            img.addEventListener('error', resolve, { once: true });
+        });
+    }
+
+    function iframeReady(fr) {
+        if (!fr.getAttribute('src')) return Promise.resolve();
+        return new Promise(resolve => {
+            let done = false;
+            function once() {
+                if (done) return;
+                done = true;
+                resolve();
+            }
+            fr.addEventListener('load', once, { once: true });
+            window.setTimeout(once, 15000);
+            try {
+                if (fr.contentDocument && fr.contentDocument.readyState === 'complete') once();
+            } catch (_) { /* cross-origin iframe */ }
+        });
+    }
+
+    function mediaElmReady(media) {
+        if (media.readyState >= 3) return Promise.resolve();
+        const hasSrc = !!(media.getAttribute && media.getAttribute('src'));
+        const hasSource = media.querySelector && media.querySelector('source[src]');
+        if (!hasSrc && !hasSource) return Promise.resolve();
+        return new Promise(resolve => {
+            media.addEventListener('canplaythrough', resolve, { once: true });
+            media.addEventListener('loadeddata', resolve, { once: true });
+            media.addEventListener('error', resolve, { once: true });
+            window.setTimeout(resolve, 12000);
+        });
+    }
+
+    function shouldBlockLoader(el) {
+        if (!el) return false;
+        if (el.getAttribute && el.getAttribute('data-loader-skip') === 'true') return false;
+        if (el.getAttribute && el.getAttribute('loading') === 'lazy') return false;
+        return true;
+    }
+
+    function gatherAssetWaits() {
+        return Promise.all([
+            domReadyPromise(),
+            fontsReadyPromise()
+        ]);
+    }
+
+    function idleFrame() {
+        return new Promise(resolve => {
+            if (typeof window.requestIdleCallback === 'function')
+                window.requestIdleCallback(() => resolve(), { timeout: 3000 });
+            else window.setTimeout(resolve, 120);
+        });
+    }
+
+    function startInfinityLoop() {
+        if (!orbitEl || pixels.length === 0) return;
+
+        const TPI = Math.PI * 2;
+
+        if (prefersReducedMotion) {
+            const w = orbitEl.clientWidth || 400;
+            const h = orbitEl.clientHeight || 260;
+            const cx = w / 2;
+            const cy = h / 2;
+            const amplitude = Math.min(w, h) * 0.36;
+            pixels.forEach((px, idx) => {
+                if (idx >= MAX_COMET_SEGMENTS) {
+                    px.style.opacity = '0';
+                    px.style.visibility = 'hidden';
+                    return;
+                }
+                const tau = wrapAngle(PATH_START_ANGLE + idx * COMET_PARAM_STEP);
+                const p = infinityXY(tau, cx, cy, amplitude);
+                const halfPx = pixelHalf(px);
+                px.style.visibility = 'visible';
+                px.style.transform =
+                    `translate3d(${p.x - halfPx}px, ${p.y - halfPx}px, 0)`;
+                px.style.opacity =
+                    String(trailOpacity(idx, MAX_COMET_SEGMENTS).toFixed(3));
+            });
+            return;
+        }
+
+        animationGen += 1;
+        const ticket = animationGen;
+        const msPerLoop = 12400;
+
+        function tick(now) {
+            if (ticket !== animationGen || !orbitEl.isConnected) return;
+
+            const w = orbitEl.clientWidth || 400;
+            const h = orbitEl.clientHeight || 260;
+            const cx = w / 2;
+            const cy = h / 2;
+            const amplitude = Math.min(w, h) * 0.36;
+            const halfPx =
+                pixels.length > 0 ? pixelHalf(pixels[0]) : gridCellPx() * 0.85;
+
+            const loopFrac = ((now % msPerLoop) / msPerLoop);
+            let activeSegments;
+            if (loopFrac < LOOP_TRAIL_BUILD_FRACTION) {
+                const g = loopFrac / LOOP_TRAIL_BUILD_FRACTION;
+                activeSegments =
+                    Math.max(
+                        1,
+                        Math.min(
+                            MAX_COMET_SEGMENTS,
+                            Math.ceil(1 + (MAX_COMET_SEGMENTS - 1) * g)
+                        )
+                    );
+            } else if (loopFrac > 1 - LOOP_TRAIL_TAPER_FRACTION) {
+                const u =
+                    (1 - loopFrac) / LOOP_TRAIL_TAPER_FRACTION;
+                activeSegments = Math.max(
+                    1,
+                    Math.ceil(MAX_COMET_SEGMENTS * u)
+                );
+            } else {
+                activeSegments = MAX_COMET_SEGMENTS;
+            }
+
+            /** Leader angle: begins on the left; increases so motion reads along the ∞. */
+            const base =
+                PATH_START_ANGLE + loopFrac * TPI;
+
+            pixels.forEach((px, idx) => {
+                if (idx >= MAX_COMET_SEGMENTS) {
+                    px.style.opacity = '0';
+                    px.style.visibility = 'hidden';
+                    return;
+                }
+                if (idx >= activeSegments) {
+                    px.style.opacity = '0';
+                    px.style.visibility = 'hidden';
+                    return;
+                }
+                px.style.visibility = 'visible';
+                const tau = wrapAngle(base - idx * COMET_PARAM_STEP);
+                const p = infinityXY(tau, cx, cy, amplitude);
+                px.style.transform =
+                    `translate3d(${p.x - halfPx}px, ${p.y - halfPx}px, 0)`;
+                px.style.opacity =
+                    String(trailOpacity(idx, activeSegments).toFixed(3));
+            });
+
+            rafId = window.requestAnimationFrame(tick);
+        }
+
+        rafId = window.requestAnimationFrame(tick);
+    }
+
+    /** @returns {void} */
+    function finishLoading() {
+        el.classList.add('portfolio-loader--done');
+        document.body.classList.remove('portfolio-loader-active');
+        el.setAttribute('aria-busy', 'false');
+        el.setAttribute('aria-valuetext', 'Ready');
+        el.setAttribute('aria-hidden', 'true');
+        animationGen += 100;
+        if (rafId) cancelAnimationFrame(rafId);
+
+        function removeLoader() {
+            el.removeEventListener('transitionend', onTe);
+            if (el.parentNode) el.parentNode.removeChild(el);
+        }
+
+        function onTe(ev) {
+            if (ev.propertyName === 'opacity') removeLoader();
+        }
+
+        el.addEventListener('transitionend', onTe);
+        window.setTimeout(removeLoader, 1100);
+    }
+
+    let finished = false;
+    /** @type {ReturnType<typeof setTimeout>} */
+    let watchdogHandle;
+
+    function dismissOnce() {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(watchdogHandle);
+        idleFrame().then(finishLoading);
+    }
+
+    watchdogHandle = window.setTimeout(() => dismissOnce(), 22000);
+
+    startInfinityLoop();
+
+    Promise.all([gatherAssetWaits(), new Promise(r => window.setTimeout(r, 560))])
+        .then(() => dismissOnce())
+        .catch(() => dismissOnce());
+})();
+
 function syncThemeToggle(btn) {
     if (!btn) return;
     const on = document.body.classList.contains('night-mode');
@@ -32,6 +340,9 @@ function bindThemeToggle() {
             localStorage.setItem(THEME_STORAGE_KEY, on ? 'dark' : 'light');
         } catch (_) {}
         syncThemeToggle(btn);
+        window.dispatchEvent(new CustomEvent('portfolio-theme-change', {
+            detail: { theme: on ? 'dark' : 'light' }
+        }));
     });
     btn.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -51,10 +362,6 @@ if (headerMount) {
 
     headerMount.innerHTML = `
         <header class="navbar">
-            <span class="navbar__guide navbar__guide--top" aria-hidden="true"></span>
-            <span class="navbar__guide navbar__guide--bottom" aria-hidden="true"></span>
-            <span class="navbar__guide navbar__guide--left" aria-hidden="true"></span>
-            <span class="navbar__guide navbar__guide--right" aria-hidden="true"></span>
             <div class="navbar__pill">
                 <a href="index.html" class="navbar__logo" aria-label="Go to homepage">
                     <img src="asset/Logo.svg" alt="AS Logo" class="logo-img">
@@ -98,17 +405,9 @@ if (headerMount) {
 }
 
 const footerMounts = document.querySelectorAll('[data-site-footer]');
+const footerIframeSrc = FOOTER_GRASS_IFRAME_SRCS[getCurrentThemeName()];
 
 footerMounts.forEach(mount => {
-    const variant = mount.getAttribute('data-site-footer');
-
-    if (variant === 'minimal') {
-        // Used on every page except the homepage. The pixel scenery that used
-        // to live here has been removed; the slot is intentionally left empty
-        // so existing markup keeps validating without rendering anything.
-        return;
-    }
-
     mount.innerHTML = `
         <footer class="site-footer">
             <div class="container">
@@ -133,68 +432,239 @@ footerMounts.forEach(mount => {
                     </div>
 
                     <h2 class="footer-cta-title" id="footer-heading">amaze amaze amaze?<br>let’s catchup soon</h2>
-
-                    <div class="footer-cta-bar">
-                        <p class="footer-cta-copy">Drop me a ‘Hi’ and I’ll get back</p>
-                        <a class="footer-cta-button" href="mailto:hello@aditya.design?subject=Hi%20Aditya">Send Email</a>
-                    </div>
+                    <p class="footer-cta-subtitle">Drop me a ‘Hi’ and I’ll get back</p>
                 </section>
 
                 <div class="footer-meta">
-                    <p class="footer-meta-copy">
-                        Copyright → Made with procrastination and overthinking<br>
-                        over the weekends <span aria-hidden="true">🌈</span>
-                    </p>
-
                     <div class="footer-meta-socials">
-                        <a href="#" class="footer-meta-social" aria-label="Instagram">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <path d="M16 3H8C5.239 3 3 5.239 3 8V16C3 18.761 5.239 21 8 21H16C18.761 21 21 18.761 21 16V8C21 5.239 18.761 3 16 3Z" stroke="currentColor" stroke-width="2" />
-                                <path d="M15.0002 11.3702C15.1236 12.2025 14.9811 13.0526 14.5939 13.7992C14.2067 14.5458 13.5949 15.152 12.8448 15.5323C12.0946 15.9127 11.2432 16.047 10.4122 15.916C9.58118 15.785 8.812 15.3953 8.21404 14.8018C7.61608 14.2082 7.22067 13.4419 7.08361 12.6118C6.94655 11.7818 7.07481 10.9294 7.45004 10.1765C7.82527 9.42356 8.42691 8.80733 9.17068 8.41473C9.91445 8.02213 10.7635 7.87342 11.5967 7.99024C12.446 8.1093 13.2322 8.49819 13.8382 9.10073C14.4441 9.70327 14.8374 10.4872 14.9612 11.3358" stroke="currentColor" stroke-width="2" />
-                                <path d="M16.5 7.5H16.51" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                            </svg>
+                        <a href="https://www.linkedin.com/in/adityasad/" class="footer-meta-social" aria-label="LinkedIn (opens in a new tab)" target="_blank" rel="noopener noreferrer">
+                            <img src="asset/social-linkedin.svg" alt="" width="32" height="32">
                         </a>
-                        <a href="#" class="footer-meta-social" aria-label="LinkedIn">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M6.94 8.5H3.56V20H6.94V8.5ZM5.25 3C4.17 3 3.5 3.72 3.5 4.66C3.5 5.58 4.15 6.31 5.21 6.31H5.23C6.33 6.31 7 5.58 7 4.66C6.98 3.72 6.33 3 5.25 3ZM20.5 13.01C20.5 9.47 18.61 7.82 16.1 7.82C14.08 7.82 13.17 8.93 12.67 9.72V8.5H9.29C9.33 9.31 9.29 20 9.29 20H12.67V13.58C12.67 13.24 12.7 12.91 12.79 12.67C13.06 12 13.67 11.3 14.7 11.3C16.05 11.3 16.59 12.33 16.59 13.84V20H19.96V13.01H20.5Z" />
-                            </svg>
+                        <a href="https://www.instagram.com/aaadit.yaa/" class="footer-meta-social" aria-label="Instagram (opens in a new tab)" target="_blank" rel="noopener noreferrer">
+                            <img src="asset/social-instagram.svg" alt="" width="32" height="32">
                         </a>
-                        <a href="#" class="footer-meta-social" aria-label="X">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <path d="M4 4L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                                <path d="M20 4L4 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                            </svg>
+                        <a href="https://x.com/aaadit_s" class="footer-meta-social" aria-label="X (opens in a new tab)" target="_blank" rel="noopener noreferrer">
+                            <img src="asset/social-x.svg" alt="" width="32" height="32">
                         </a>
                     </div>
                 </div>
 
-                <div class="footer-wordmark-shell" aria-hidden="true">
-                    <span class="footer-wordmark">
-                        <img src="asset/the.end.png" alt="the end">
-                    </span>
-                </div>
+                <figure class="footer-grass-scene" aria-hidden="true" data-footer-grass-scene>
+                    <img
+                        class="footer-grass-scene__base footer-grass-scene__base--light"
+                        src="asset/grass-footer.png"
+                        alt=""
+                        width="1440"
+                        height="400"
+                        loading="lazy"
+                        decoding="async"
+                        fetchpriority="low"
+                    >
+                    <img
+                        class="footer-grass-scene__base footer-grass-scene__base--dark"
+                        src="asset/grass-footer-dark.png"
+                        alt=""
+                        width="1440"
+                        height="400"
+                        loading="lazy"
+                        decoding="async"
+                        fetchpriority="low"
+                    >
+                    <iframe
+                        class="footer-grass-scene__overlay"
+                        data-footer-overlay
+                        data-loader-skip="true"
+                        data-src-light="${FOOTER_GRASS_IFRAME_SRCS.light}"
+                        data-src-dark="${FOOTER_GRASS_IFRAME_SRCS.dark}"
+                        data-current-theme="${getCurrentThemeName()}"
+                        src="${footerIframeSrc}"
+                        title="Animated grass and robot"
+                        loading="lazy"
+                        scrolling="no"
+                        tabindex="-1"
+                    ></iframe>
+                    <p class="footer-meta-copy">
+                        Made with procrastination, overthinking and Claude over the weekends <span aria-hidden="true">🌈</span>
+                    </p>
+                </figure>
+
             </div>
         </footer>
     `;
 });
 
-// Drifting dapple band — always the very last element on the page so it
-// reads as soft sunlight pooling on the ground beneath everything else.
-// Painted by asset/dappled-footer-shader.js, which discovers this
-// container via the [data-dappled-footer] hook regardless of script load
-// order.
-(function ensureDappledFooter() {
-    // Pages with body[data-no-dappled-footer] (e.g. the play canvas) own the
-    // viewport and don't want a footer band injected. Bail out for those.
-    if (document.body && document.body.hasAttribute('data-no-dappled-footer')) return;
-    if (document.querySelector('[data-dappled-footer]')) return;
-    const band = document.createElement('div');
-    band.className = 'dappled-footer';
-    band.setAttribute('data-dappled-footer', '');
-    band.setAttribute('aria-hidden', 'true');
-    band.innerHTML = '<canvas class="dappled-footer__canvas"></canvas>';
-    document.body.appendChild(band);
+(function initWorkCardLotties() {
+    const targets = Array.from(document.querySelectorAll('[data-lottie-src]'));
+    if (!targets.length || typeof window.lottie === 'undefined') return;
+
+    const reducedMotion = window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : { matches: false };
+
+    targets.forEach(target => {
+        const path = target.getAttribute('data-lottie-src');
+        if (!path) return;
+
+        const animation = window.lottie.loadAnimation({
+            container: target,
+            renderer: 'svg',
+            loop: !reducedMotion.matches,
+            autoplay: !reducedMotion.matches,
+            path,
+            rendererSettings: {
+                preserveAspectRatio: 'xMidYMid meet',
+                progressiveLoad: true
+            }
+        });
+
+        if (reducedMotion.matches) {
+            animation.addEventListener('DOMLoaded', () => {
+                animation.goToAndStop(0, true);
+            });
+        }
+    });
 })();
+
+(function initFooterGrassSceneMotion() {
+    const scenes = Array.from(document.querySelectorAll('[data-footer-grass-scene]'));
+    if (!scenes.length) return;
+
+    const reducedMotion = window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : { matches: false };
+
+    if (reducedMotion.matches) {
+        return;
+    }
+
+    const prefersFinePointer = window.matchMedia
+        ? window.matchMedia('(pointer: fine)')
+        : { matches: true };
+
+    function getSceneIframe(scene) {
+        return scene.querySelector('[data-footer-overlay]');
+    }
+
+    function getSceneActiveState(scene) {
+        return scene.dataset.footerVisible === 'true' && document.visibilityState === 'visible';
+    }
+
+    function postSceneState(scene) {
+        const iframe = getSceneIframe(scene);
+        if (!iframe) return;
+        iframe.contentWindow?.postMessage({
+            type: 'footer-scene-state',
+            active: getSceneActiveState(scene)
+        }, window.location.origin);
+    }
+
+    function syncSceneTheme(scene, nextTheme = getCurrentThemeName()) {
+        const iframe = getSceneIframe(scene);
+        if (!iframe) return;
+        const nextSrc = iframe.dataset[`src${nextTheme[0].toUpperCase()}${nextTheme.slice(1)}`];
+        scene.dataset.footerTheme = nextTheme;
+        if (!nextSrc) return;
+        if (iframe.dataset.currentTheme === nextTheme && iframe.getAttribute('src') === nextSrc) {
+            postSceneState(scene);
+            return;
+        }
+        iframe.dataset.currentTheme = nextTheme;
+        iframe.setAttribute('src', nextSrc);
+    }
+
+    function postPointer(scene, x, y) {
+        const iframe = getSceneIframe(scene);
+        if (!iframe || !getSceneActiveState(scene)) return;
+        iframe.contentWindow?.postMessage({
+            type: 'footer-pointer',
+            x,
+            y
+        }, window.location.origin);
+    }
+
+    function postPointerLeave(scene) {
+        const iframe = getSceneIframe(scene);
+        if (!iframe) return;
+        iframe.contentWindow?.postMessage({ type: 'footer-pointer-leave' }, window.location.origin);
+    }
+
+    const visibilityObserver = typeof IntersectionObserver === 'function'
+        ? new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                const scene = entry.target;
+                scene.dataset.footerVisible = entry.isIntersecting ? 'true' : 'false';
+                if (!entry.isIntersecting) postPointerLeave(scene);
+                postSceneState(scene);
+            });
+        }, { threshold: 0.08, rootMargin: '160px 0px' })
+        : null;
+
+    scenes.forEach(scene => {
+        let rafId = 0;
+        let targetX = 0;
+        let targetY = 0;
+        let currentX = 0;
+        let currentY = 0;
+        let lastSentX = Number.NaN;
+        let lastSentY = Number.NaN;
+
+        const iframe = getSceneIframe(scene);
+        scene.dataset.footerVisible = visibilityObserver ? 'false' : 'true';
+        scene.dataset.footerTheme = getCurrentThemeName();
+        syncSceneTheme(scene, scene.dataset.footerTheme);
+        iframe?.addEventListener('load', () => {
+            postSceneState(scene);
+            postPointer(scene, currentX, currentY);
+        });
+        visibilityObserver?.observe(scene);
+
+        const paint = () => {
+            rafId = 0;
+            currentX += (targetX - currentX) * 0.12;
+            currentY += (targetY - currentY) * 0.12;
+            if (Math.abs(lastSentX - currentX) > 0.002 || Math.abs(lastSentY - currentY) > 0.002) {
+                lastSentX = currentX;
+                lastSentY = currentY;
+                postPointer(scene, currentX, currentY);
+            }
+            if (Math.abs(targetX - currentX) > 0.002 || Math.abs(targetY - currentY) > 0.002) {
+                rafId = requestAnimationFrame(paint);
+            }
+        };
+
+        const requestPaint = () => {
+            if (!rafId) rafId = requestAnimationFrame(paint);
+        };
+
+        scene.addEventListener('pointermove', (event) => {
+            if (!prefersFinePointer.matches || getSceneActiveState(scene) === false) return;
+            const rect = scene.getBoundingClientRect();
+            targetX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            targetY = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+            requestPaint();
+        }, { passive: true });
+
+        scene.addEventListener('pointerleave', () => {
+            targetX = 0;
+            targetY = 0;
+            postPointerLeave(scene);
+            requestPaint();
+        }, { passive: true });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        scenes.forEach(scene => {
+            if (document.visibilityState !== 'visible') postPointerLeave(scene);
+            postSceneState(scene);
+        });
+    });
+
+    window.addEventListener('portfolio-theme-change', (event) => {
+        const nextTheme = event.detail?.theme === 'dark' ? 'dark' : 'light';
+        scenes.forEach(scene => syncSceneTheme(scene, nextTheme));
+    });
+})();
+
 
 /*
 // --- Layout Toggle Logic ---
@@ -222,9 +692,10 @@ const modalClose = document.getElementById('modal-close');
 const workCards = document.querySelectorAll('.work-card');
 const homeWorkCards = document.querySelectorAll('#work-wall .work-card');
 
-// Create dynamic custom cursor label
+// Create dynamic custom cursor label for the homepage project cards.
 const cursorLabel = document.createElement('div');
 cursorLabel.id = 'custom-cursor-label';
+cursorLabel.setAttribute('aria-hidden', 'true');
 document.body.appendChild(cursorLabel);
 
 // Orange cursor dot
@@ -233,11 +704,28 @@ cursorDot.classList.add('cursor-dot');
 document.body.appendChild(cursorDot);
 
 let dotX = 0, dotY = 0;
+let labelX = 0, labelY = 0;
+let cursorRaf = 0;
+
+function requestCursorPaint() {
+    if (cursorRaf) return;
+    cursorRaf = requestAnimationFrame(() => {
+        cursorRaf = 0;
+        cursorDot.style.left = dotX + 'px';
+        cursorDot.style.top = dotY + 'px';
+        if (cursorLabel.style.opacity !== '0') {
+            cursorLabel.style.left = labelX + 'px';
+            cursorLabel.style.top = labelY + 'px';
+        }
+    });
+}
+
 document.addEventListener('mousemove', (e) => {
     dotX = e.clientX;
     dotY = e.clientY;
-    cursorDot.style.left = dotX + 'px';
-    cursorDot.style.top = dotY + 'px';
+    labelX = e.clientX;
+    labelY = e.clientY;
+    requestCursorPaint();
 });
 
 document.querySelectorAll('a, button, [role="button"], input, textarea, select, .work-card').forEach(el => {
@@ -255,6 +743,69 @@ document.querySelectorAll('.hero-v2__tag').forEach(el => {
 });
 
 let cursorTimeout;
+let cursorExpandTimeout;
+let cursorDescTimeout;
+let activeTooltipCard = null;
+
+function escapeHTML(value) {
+    return String(value || '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+function setCursorTooltipContent(card) {
+    const title = card.getAttribute('data-title');
+    const desc = card.getAttribute('data-desc');
+    if (!title) return false;
+    cursorLabel.classList.remove('has-description');
+    cursorLabel.innerHTML = `
+        <span class="cursor-label__title">${escapeHTML(title)}</span>
+        ${desc ? `<span class="cursor-label__desc">${escapeHTML(desc)}</span>` : ''}
+    `;
+    return true;
+}
+
+function collapseCursorTooltip() {
+    clearTimeout(cursorExpandTimeout);
+    clearTimeout(cursorDescTimeout);
+    cursorLabel.classList.remove('is-expanded', 'has-description');
+    cursorLabel.classList.add('is-collapsing');
+}
+
+function hideCursorTooltip(delay = 120) {
+    collapseCursorTooltip();
+    cursorTimeout = setTimeout(() => {
+        cursorLabel.classList.remove('is-collapsing', 'is-expanded', 'has-description');
+        cursorLabel.style.opacity = '0';
+        activeTooltipCard = null;
+    }, delay);
+}
+
+function expandCursorTooltip(card) {
+    clearTimeout(cursorTimeout);
+    clearTimeout(cursorExpandTimeout);
+    const isSwitchingCards = activeTooltipCard && activeTooltipCard !== card;
+    activeTooltipCard = card;
+    collapseCursorTooltip();
+
+    cursorExpandTimeout = setTimeout(() => {
+        if (activeTooltipCard !== card || !setCursorTooltipContent(card)) return;
+        cursorLabel.style.opacity = '';
+        cursorLabel.classList.remove('is-collapsing');
+        cursorLabel.classList.add('is-expanded');
+        cursorDescTimeout = setTimeout(() => {
+            const stillOnCard = activeTooltipCard === card;
+            const hasDesc = Boolean(card.getAttribute('data-desc'));
+            if (stillOnCard && hasDesc && cursorLabel.classList.contains('is-expanded')) {
+                cursorLabel.classList.add('has-description');
+            }
+        }, 720);
+    }, isSwitchingCards ? 80 : 140);
+}
 
 workCards.forEach(card => {
     const link = card.getAttribute('data-link');
@@ -283,30 +834,10 @@ workCards.forEach(card => {
         }
     });
 
-    // All work cards (homepage + work page) share the same hover behavior:
-    // the cursor label surfaces the project title (and description if present).
-    // No in-card transform — the cursor is the sole affordance.
     card.addEventListener('mouseenter', () => {
-        clearTimeout(cursorTimeout);
-        const title = card.getAttribute('data-title');
-        const desc = card.getAttribute('data-desc');
-        if (!title) return;
-        cursorLabel.innerHTML = desc
-            ? `<strong>${title}</strong> &nbsp;—&nbsp; <span style="opacity: 0.8;">${desc}</span>`
-            : `<strong>${title}</strong>`;
-        cursorLabel.style.opacity = '1';
+        expandCursorTooltip(card);
     });
-
-    card.addEventListener('mouseleave', () => {
-        cursorTimeout = setTimeout(() => {
-            cursorLabel.style.opacity = '0';
-        }, 50);
-    });
-
-    card.addEventListener('mousemove', (e) => {
-        cursorLabel.style.left = `${e.clientX + 15}px`;
-        cursorLabel.style.top = `${e.clientY - 15}px`;
-    });
+    card.addEventListener('mouseleave', () => hideCursorTooltip());
 });
 
 /* ==========================================================================
@@ -332,6 +863,14 @@ workCards.forEach(card => {
     const hasGsap = typeof window.gsap !== 'undefined';
     const reduceMotion = window.matchMedia
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function bodyFadeElems() {
+        return Array.from(document.body.children).filter(
+            node =>
+                node.nodeType === Node.ELEMENT_NODE
+                && node.id !== 'portfolio-loader'
+        );
+    }
 
     function navigateWithFade(link) {
         if (!link) return;
@@ -402,7 +941,8 @@ workCards.forEach(card => {
     }
 
     // Incoming fade-in. The early head script in each HTML file added
-    // .cs-incoming to <html> (which hides body via CSS) when it found a
+    // .cs-incoming to <html> (which hides every body sibling except
+    // #portfolio-loader via CSS) when it found a
     // pending fade in sessionStorage. We just reverse it.
     function runIncomingFadeIn() {
         const incoming = document.documentElement.classList.contains('cs-incoming');
@@ -414,10 +954,9 @@ workCards.forEach(card => {
             return;
         }
 
-        // Body is at opacity 0 because of the .cs-incoming CSS rule.
-        // Switch the hide mechanism from class -> inline style so we can
-        // smoothly tween it back to 1.
-        gsap.set(document.body, { autoAlpha: 0 });
+        // Every body sibling except #portfolio-loader is hidden via CSS until
+        // we replace that with GSAP-managed opacity — the loader must stay visible.
+        gsap.set(bodyFadeElems(), { autoAlpha: 0 });
         document.documentElement.classList.remove('cs-incoming');
 
         // Wait for assets + fonts so the fade reveals a fully-settled
@@ -439,7 +978,7 @@ workCards.forEach(card => {
                 }
             }
 
-            gsap.to(document.body, {
+            gsap.to(bodyFadeElems(), {
                 autoAlpha: 1,
                 duration: reduceMotion ? 0.001 : 0.45,
                 ease: 'power2.out',
@@ -462,7 +1001,7 @@ workCards.forEach(card => {
         if (document.documentElement.classList.contains('cs-incoming')) {
             document.documentElement.classList.remove('cs-incoming');
             document.documentElement.style.backgroundColor = '';
-            if (hasGsap) gsap.set(document.body, { autoAlpha: 1, clearProps: 'opacity,visibility' });
+            if (hasGsap) gsap.set(bodyFadeElems(), { autoAlpha: 1, clearProps: 'opacity,visibility' });
         }
     }, 1500);
 
@@ -474,8 +1013,93 @@ workCards.forEach(card => {
         try { sessionStorage.removeItem(FADE_KEY); } catch (_) {}
         document.documentElement.classList.remove('cs-incoming');
         document.documentElement.style.backgroundColor = '';
-        if (hasGsap) gsap.set(document.body, { autoAlpha: 1, clearProps: 'opacity,visibility' });
+        if (hasGsap) gsap.set(bodyFadeElems(), { autoAlpha: 1, clearProps: 'opacity,visibility' });
     });
+})();
+
+/**
+ * Play page — scroll-driven mascot eye tracking.
+ *
+ * The mascot is a viewport-pinned layer. Because the Play page is built
+ * around scrolling through content, the pupils follow the page's scroll
+ * progress instead of the cursor: they start looking up at the top of the
+ * page and gradually look down as the visitor scrolls. A subtle sideways
+ * sway is layered on top so the gaze feels alive rather than mechanical.
+ */
+(function initPlayMascotEyes() {
+    const mascot = document.querySelector('[data-play-mascot]');
+    if (!mascot) return;
+
+    const eyeGroups = Array.from(mascot.querySelectorAll('[data-mascot-eye]'));
+    const reducedMotion = window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : { matches: false };
+    if (!eyeGroups.length || reducedMotion.matches) return;
+
+    const MAX_X = 2.2;
+    const MAX_Y_UP = 2.4;
+    const MAX_Y_DOWN = 2;
+    // Sensitivity multipliers — boosting these >1 makes the pupils reach
+    // their full deflection well before the user has panned the canvas to
+    // the very edge, so the eyes feel responsive to small scrolls.
+    const SENSITIVITY_X = 3;
+    const SENSITIVITY_Y = 3;
+    let rafId = 0;
+    let progressX = 0;
+    let progressY = 0;
+
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function updateEyes() {
+        rafId = 0;
+        // progressY: -1 at the top of the canvas, +1 at the bottom → eyes
+        // look up at the start and gradually look down as the user pans down.
+        // Multiply by sensitivity then re-clamp so small pans drive big eye
+        // motion (saturating quickly at the natural -1..+1 bounds).
+        const dy = clamp(progressY * SENSITIVITY_Y, -1, 1);
+        const dx = clamp(progressX * SENSITIVITY_X, -1, 1);
+        const yRange = dy < 0 ? MAX_Y_UP : MAX_Y_DOWN;
+
+        eyeGroups.forEach((eye) => {
+            const pupil = eye.querySelector('[data-mascot-pupil]');
+            if (!pupil) return;
+            pupil.style.transform = `translate(${dx * MAX_X}px, ${dy * yRange}px)`;
+        });
+    }
+
+    function requestEyeUpdate() {
+        if (!rafId) rafId = requestAnimationFrame(updateEyes);
+    }
+
+    // Primary signal: Play canvas pan (wheel / touch / trackpad scrolling
+    // the canvas does NOT change window.scrollY because the canvas intercepts
+    // wheel events). The canvas broadcasts its normalized pan progress via
+    // a custom event after every applyPan().
+    const canvas = document.querySelector('[data-play-canvas]');
+    if (canvas) {
+        canvas.addEventListener('playcanvas:pan', (e) => {
+            const detail = e.detail || {};
+            if (typeof detail.progressX === 'number') progressX = detail.progressX;
+            if (typeof detail.progressY === 'number') progressY = detail.progressY;
+            requestEyeUpdate();
+        });
+    }
+
+    // Fallback: regular document scroll, in case the page ever grows beyond
+    // a single viewport. Maps document scroll 0..1 onto progressY -1..+1.
+    window.addEventListener('scroll', () => {
+        const doc = document.documentElement;
+        const max = (doc.scrollHeight || document.body.scrollHeight) - window.innerHeight;
+        if (max <= 0) return;
+        const t = (window.scrollY || window.pageYOffset || 0) / max;
+        progressY = clamp(t * 2 - 1, -1, 1);
+        requestEyeUpdate();
+    }, { passive: true });
+
+    window.addEventListener('resize', requestEyeUpdate, { passive: true });
+    requestEyeUpdate();
 })();
 
 // --- Mobile Menu Interaction ---
@@ -506,23 +1130,25 @@ const bottomContainer = document.getElementById("content-bottom");
 if (topContainer && centerContainer && bottomContainer) {
     const containers = [topContainer, centerContainer, bottomContainer];
 
-    // Populate images (Double set for seamless infinite loop as per snippet)
+    // One canonical image set. We render two consecutive copies so the fold
+    // stage can wrap after one full set without a visible jump.
     const images = [
-        "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1549490349-8643362247b5?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1536924940846-227afb31e2a5?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&q=80&w=800"
+        "./asset/gallery-web-01.jpg",
+        "./asset/gallery-web-02.jpg",
+        "./asset/gallery-web-03.jpg",
+        "./asset/gallery-web-04.jpg",
+        "./asset/gallery-web-05.jpg",
+        "./asset/gallery-web-06.jpg",
+        "./asset/gallery-web-07.jpg"
     ];
+    const loopImages = [...images, ...images];
 
     containers.forEach(container => {
         container.innerHTML = '';
-        [...images, ...images, ...images].forEach(src => {
+        loopImages.forEach(src => {
             const div = document.createElement('div');
             div.className = 'ticker-image-wrapper';
-            div.innerHTML = `<img src="${src}" alt="">`;
+            div.innerHTML = `<img src="${src}" alt="" loading="lazy" decoding="async">`;
             container.appendChild(div);
         });
     });
@@ -530,25 +1156,76 @@ if (topContainer && centerContainer && bottomContainer) {
     const foldsContent = [topContainer, centerContainer, bottomContainer];
 
     let yPos = 0;
-    const scrollSpeed = 0.8;
+    const scrollSpeed = 1.05;
+    let tickerInView = true;
+    let tickerRaf = 0;
 
-    const tick = () => {
-        yPos -= scrollSpeed;
-        const resetThreshold = foldsContent[1].scrollHeight / 3;
+    const getItemSpan = () => {
+        const firstItem = foldsContent[1].firstElementChild;
+        if (!firstItem) return 0;
 
-        if (Math.abs(yPos) >= resetThreshold) {
-            yPos = 0;
-        }
+        const contentStyles = window.getComputedStyle(foldsContent[1]);
+        const gap = parseFloat(contentStyles.rowGap || contentStyles.gap || '0');
 
-        foldsContent.forEach((content) => {
-            content.style.transform = `translateY(${yPos}px)`;
-        });
-
-        requestAnimationFrame(tick);
+        return firstItem.getBoundingClientRect().height + gap;
     };
 
-    // Delay start to let images load for accurate scrollHeight
-    setTimeout(tick, 500);
+    const getLoopSpan = () => {
+        const itemSpan = getItemSpan();
+        if (!itemSpan) return 0;
+
+        return itemSpan * images.length;
+    };
+
+    const wrapLoop = () => {
+        const loopSpan = getLoopSpan();
+        if (!loopSpan) return;
+
+        while (yPos <= -loopSpan) {
+            yPos += loopSpan;
+        }
+    };
+
+    const tick = () => {
+        tickerRaf = 0;
+        if (!tickerInView) return;
+
+        yPos -= scrollSpeed;
+        wrapLoop();
+
+        foldsContent.forEach((content) => {
+            content.style.transform = `translate3d(0, ${yPos}px, 0)`;
+        });
+
+        tickerRaf = requestAnimationFrame(tick);
+    };
+
+    if ('IntersectionObserver' in window) {
+        const stage = document.querySelector('.beyond-pixels-stage');
+        if (stage) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    tickerInView = entry.isIntersecting;
+                    if (tickerInView && !tickerRaf) {
+                        tickerRaf = requestAnimationFrame(tick);
+                    }
+                });
+            }, { rootMargin: '160px 0px' });
+            observer.observe(stage);
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        wrapLoop();
+        foldsContent.forEach((content) => {
+            content.style.transform = `translate3d(0, ${yPos}px, 0)`;
+        });
+    });
+
+    // Delay start so layout has settled before we start measuring item height.
+    setTimeout(() => {
+        if (!tickerRaf) tickerRaf = requestAnimationFrame(tick);
+    }, 500);
 
 }
 
@@ -764,6 +1441,7 @@ if (heroCamera) {
 (function initPlayCanvas() {
     const canvas = document.querySelector('[data-play-canvas]');
     const world = document.querySelector('[data-play-world]');
+    const overlay = document.querySelector('.play-overlay');
     // Grid is a sibling of .play-world that paints the dots + mesh background.
     // It pans in lockstep with the world so the grid stays anchored to world
     // coordinates. Optional — page still works if the element is absent.
@@ -771,11 +1449,16 @@ if (heroCamera) {
     if (!canvas || !world) return;
 
     const STORAGE_KEY = 'play-sticker-positions';
+    const LAYOUT_STORAGE_KEY = 'play-layout-editor-v1';
     const INITIAL_WORLD_CENTER_X = 1500;
     const INITIAL_WORLD_CENTER_Y = 1000;
     const MIN_EDGE_PADDING = 260;
     const MAX_EDGE_PADDING = 520;
     const EDGE_PADDING_RATIO = 0.45;
+    const TOUCH_TAP_THRESHOLD = 14;
+    const DETAIL_DEFAULT_TITLE = 'Play study';
+    const DETAIL_DEFAULT_DESCRIPTION = 'A visual experiment from my playground exploring motion, framing, and storytelling.';
+    const DETAIL_OPEN_TOOLTIP = 'Tap outside to close';
 
     /* Set left / top / width / height / --rot / z-index from data-* attrs.
        Used for both cards and stickers so the HTML stays declarative.
@@ -790,10 +1473,36 @@ if (heroCamera) {
         const z = parseFloat(el.dataset.z || '');
         if (!Number.isNaN(x)) el.style.left = x + 'px';
         if (!Number.isNaN(y)) el.style.top = y + 'px';
-        if (w) el.style.width = w + 'px';
-        if (h) el.style.height = h + 'px';
-        if (rot) el.style.setProperty('--rot', rot + 'deg');
+        if (!Number.isNaN(w) && w > 0) el.style.width = w + 'px';
+        if (!Number.isNaN(h) && h > 0) el.style.height = h + 'px';
+        if (!Number.isNaN(rot)) el.style.setProperty('--rot', rot + 'deg');
         if (!Number.isNaN(z)) el.style.zIndex = String(z);
+    }
+
+    function readPlacement(el, fallbackZ = 1) {
+        const x = parseFloat(el.dataset.x || el.style.left || '0') || 0;
+        const y = parseFloat(el.dataset.y || el.style.top || '0') || 0;
+        const w = parseFloat(el.dataset.w || el.style.width || String(el.offsetWidth || 0)) || 0;
+        const h = parseFloat(el.dataset.h || el.style.height || String(el.offsetHeight || 0)) || 0;
+        const rot = parseFloat(el.dataset.rot || '0') || 0;
+        const zRaw = parseFloat(el.dataset.z || el.style.zIndex || '');
+        const z = Number.isNaN(zRaw) ? fallbackZ : zRaw;
+        return { x, y, w, h, rot, z };
+    }
+
+    function writePlacement(el, placement) {
+        const next = {
+            ...readPlacement(el),
+            ...placement
+        };
+        const round = value => Math.round(Number(value) * 10) / 10;
+        el.dataset.x = String(round(next.x));
+        el.dataset.y = String(round(next.y));
+        if (next.w > 0) el.dataset.w = String(round(next.w));
+        if (next.h > 0) el.dataset.h = String(round(next.h));
+        el.dataset.rot = String(round(next.rot));
+        el.dataset.z = String(Math.round(Number(next.z) || 0));
+        applyWorldPlacement(el);
     }
 
     /* localStorage helpers for sticker persistence */
@@ -803,28 +1512,419 @@ if (heroCamera) {
             return raw ? JSON.parse(raw) : {};
         } catch (e) { return {}; }
     }
+    function readSavedLayout() {
+        try {
+            const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : null;
+            return parsed && parsed.items ? parsed.items : {};
+        } catch (e) { return {}; }
+    }
     function saveStickerPosition(id, x, y) {
         try {
             const all = readSavedStickerPositions();
             all[id] = { x, y };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
         } catch (e) {}
+        savePlayLayout();
     }
 
     // ── Card placements ──────────────────────────────────────────────
     const cards = Array.from(canvas.querySelectorAll('.play-card'));
+    const stickers = Array.from(canvas.querySelectorAll('[data-play-sticker]'));
+    const layoutItems = [...cards, ...stickers];
+
+    function layoutItemId(el, index = layoutItems.indexOf(el)) {
+        if (!el.dataset.playLayoutId) {
+            el.dataset.playLayoutId = el.dataset.stickerId || `play-item-${index + 1}`;
+        }
+        return el.dataset.playLayoutId;
+    }
+
+    layoutItems.forEach((el, index) => layoutItemId(el, index));
+    const defaultLayout = new Map(layoutItems.map((el, index) => [
+        layoutItemId(el, index),
+        readPlacement(el, el.matches('[data-play-sticker]') ? 100 + index : index + 1)
+    ]));
+
+    function collectPlayLayout() {
+        const items = {};
+        layoutItems.forEach((el, index) => {
+            const id = layoutItemId(el, index);
+            const placement = readPlacement(el, defaultLayout.get(id)?.z || index + 1);
+            items[id] = {
+                type: el.matches('[data-play-sticker]') ? 'sticker' : 'card',
+                x: Math.round(placement.x * 10) / 10,
+                y: Math.round(placement.y * 10) / 10,
+                w: Math.round(placement.w * 10) / 10,
+                h: Math.round(placement.h * 10) / 10,
+                rot: Math.round(placement.rot * 10) / 10,
+                z: Math.round(placement.z)
+            };
+        });
+        return {
+            version: 1,
+            updatedAt: new Date().toISOString(),
+            items
+        };
+    }
+
+    function savePlayLayout() {
+        try {
+            localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(collectPlayLayout()));
+        } catch (e) {}
+    }
+
+    function applySavedLayout() {
+        const saved = readSavedLayout();
+        layoutItems.forEach((el, index) => {
+            const id = layoutItemId(el, index);
+            if (!saved[id]) return;
+            writePlacement(el, saved[id]);
+        });
+    }
+
     cards.forEach(applyWorldPlacement);
+    stickers.forEach(applyWorldPlacement);
+
+    const detail = canvas.querySelector('[data-play-detail]');
+    const detailBackdrop = canvas.querySelector('[data-play-detail-close]');
+    const detailShell = canvas.querySelector('[data-play-detail-shell]');
+    const detailMedia = canvas.querySelector('[data-play-detail-media]');
+    const detailTitle = canvas.querySelector('[data-play-detail-title]');
+    const detailDescription = canvas.querySelector('[data-play-detail-description]');
+    const detailStats = canvas.querySelector('[data-play-detail-stats]');
+    const mascot = canvas.querySelector('[data-play-mascot]');
+    const mascotTooltip = mascot?.querySelector('.play-mascot__tooltip');
+    const defaultMascotTooltip = mascotTooltip?.textContent || '';
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    let detailActiveCard = null;
+    let detailAnimating = false;
+    let touchScrollMoved = false;
+    let touchScrollResetTimer = 0;
+
+    function syncDetailTooltip(message) {
+        if (!mascotTooltip) return;
+        mascotTooltip.textContent = message;
+    }
+
+    function buildDetailMediaClone(card) {
+        const sourceMedia = card.querySelector('.play-card__media');
+        if (!sourceMedia) return document.createElement('div');
+        const clone = sourceMedia.cloneNode(true);
+        const video = clone.querySelector('video');
+        if (video) {
+            video.muted = true;
+            video.autoplay = true;
+            video.loop = true;
+            video.playsInline = true;
+            const maybePlay = video.play?.();
+            if (maybePlay?.catch) maybePlay.catch(() => {});
+        }
+        return clone;
+    }
+
+    function populateDetail(card) {
+        const width = parseFloat(card.dataset.w || '') || card.offsetWidth || 320;
+        const height = parseFloat(card.dataset.h || '') || card.offsetHeight || 420;
+        const title = card.dataset.playTitle || DETAIL_DEFAULT_TITLE;
+        const description = card.dataset.playDescription || DETAIL_DEFAULT_DESCRIPTION;
+        const stats = [
+            { value: card.dataset.playHeart, icon: 'asset/play_gradinettexture_heart.png', label: 'Likes' },
+            { value: card.dataset.playUser, icon: 'asset/play_gradinettexture_user.png', label: 'Users reached' }
+        ].filter((stat) => stat.value);
+
+        detailTitle.textContent = title;
+        detailDescription.textContent = description;
+        detailShell.style.setProperty('--detail-aspect', `${Math.max(width, 1)} / ${Math.max(height, 1)}`);
+        detailMedia.replaceChildren(buildDetailMediaClone(card));
+
+        if (detailStats) {
+            detailStats.replaceChildren(...stats.map((stat) => {
+                const item = document.createElement('div');
+                item.className = 'play-detail__stat';
+
+                const icon = document.createElement('img');
+                icon.src = stat.icon;
+                icon.alt = '';
+
+                const value = document.createElement('span');
+                value.textContent = stat.value;
+                value.setAttribute('aria-label', `${stat.value} ${stat.label}`);
+
+                item.append(icon, value);
+                return item;
+            }));
+            detailStats.hidden = stats.length === 0;
+        }
+    }
+
+    function clearDetail() {
+        detailMedia.replaceChildren();
+        detailTitle.textContent = '';
+        detailDescription.textContent = '';
+        detailStats?.replaceChildren();
+        if (detailStats) detailStats.hidden = true;
+    }
+
+    function createMorphGhost(card, rect, mode = 'card') {
+        const ghost = document.createElement('div');
+        ghost.className = 'play-detail-ghost';
+        if (card.classList.contains('play-card--transparent')) {
+            ghost.classList.add('play-detail-ghost--transparent');
+        }
+        ghost.style.left = `${rect.left}px`;
+        ghost.style.top = `${rect.top}px`;
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.height = `${rect.height}px`;
+        ghost.appendChild(
+            mode === 'detail'
+                ? buildDetailMediaClone(card)
+                : buildDetailMediaClone(card)
+        );
+        return ghost;
+    }
+
+    function waitForNextFrame() {
+        return new Promise((resolve) => {
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+            requestAnimationFrame(finish);
+            window.setTimeout(finish, 34);
+        });
+    }
+
+    async function animateGhost(ghost, fromRect, toRect, fromRotation, toRotation, duration) {
+        if (prefersReducedMotion.matches || duration <= 0) {
+            ghost.style.left = `${toRect.left}px`;
+            ghost.style.top = `${toRect.top}px`;
+            ghost.style.width = `${toRect.width}px`;
+            ghost.style.height = `${toRect.height}px`;
+            ghost.style.transform = `rotate(${toRotation}deg)`;
+            ghost.style.borderRadius = '18px';
+            return;
+        }
+
+        let animation = null;
+        try {
+            animation = ghost.animate([
+                {
+                    left: `${fromRect.left}px`,
+                    top: `${fromRect.top}px`,
+                    width: `${fromRect.width}px`,
+                    height: `${fromRect.height}px`,
+                    borderRadius: '12px',
+                    transform: `rotate(${fromRotation}deg)`
+                },
+                {
+                    left: `${toRect.left}px`,
+                    top: `${toRect.top}px`,
+                    width: `${toRect.width}px`,
+                    height: `${toRect.height}px`,
+                    borderRadius: '18px',
+                    transform: `rotate(${toRotation}deg)`
+                }
+            ], {
+                duration,
+                easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                fill: 'forwards'
+            });
+        } catch (_) {}
+
+        let fallbackTimer = 0;
+        if (animation?.finished) {
+            try {
+                await Promise.race([
+                    animation.finished,
+                    new Promise((resolve) => {
+                        fallbackTimer = window.setTimeout(resolve, duration + 96);
+                    })
+                ]);
+            } catch (_) {}
+        } else {
+            await new Promise((resolve) => {
+                fallbackTimer = window.setTimeout(resolve, duration + 96);
+            });
+        }
+
+        window.clearTimeout(fallbackTimer);
+        ghost.style.left = `${toRect.left}px`;
+        ghost.style.top = `${toRect.top}px`;
+        ghost.style.width = `${toRect.width}px`;
+        ghost.style.height = `${toRect.height}px`;
+        ghost.style.transform = `rotate(${toRotation}deg)`;
+        ghost.style.borderRadius = '18px';
+    }
+
+    async function openPlayCardDetail(card) {
+        if (!detail || !detailBackdrop || !detailShell || !detailMedia) return;
+        if (detailAnimating || detailActiveCard) return;
+
+        detailAnimating = true;
+        detailActiveCard = card;
+        let ghost = null;
+
+        try {
+            populateDetail(card);
+            detail.hidden = false;
+            detail.setAttribute('aria-hidden', 'false');
+            detail.classList.add('is-active', 'is-morphing');
+            canvas.classList.add('is-detail-open');
+            card.classList.add('is-source-hidden');
+            syncDetailTooltip(DETAIL_OPEN_TOOLTIP);
+
+            await waitForNextFrame();
+
+            const fromRect = card.getBoundingClientRect();
+            const toRect = detailShell.getBoundingClientRect();
+            const fromRotation = parseFloat(card.dataset.rot || '0');
+            ghost = createMorphGhost(card, fromRect);
+            document.body.appendChild(ghost);
+
+            await animateGhost(ghost, fromRect, toRect, fromRotation, 0, 460);
+        } finally {
+            detail.classList.remove('is-morphing');
+            await waitForNextFrame();
+            ghost?.remove();
+            detailAnimating = false;
+        }
+    }
+
+    async function closePlayCardDetail({ restoreFocus = true } = {}) {
+        if (!detail || !detailActiveCard || detailAnimating) return;
+
+        const card = detailActiveCard;
+        detailAnimating = true;
+        detail.classList.add('is-morphing');
+        let ghost = null;
+
+        try {
+            const fromRect = detailShell.getBoundingClientRect();
+            const toRect = card.getBoundingClientRect();
+            const toRotation = parseFloat(card.dataset.rot || '0');
+            ghost = createMorphGhost(card, fromRect, 'detail');
+            document.body.appendChild(ghost);
+
+            detail.classList.remove('is-active');
+            syncDetailTooltip(defaultMascotTooltip);
+
+            await animateGhost(ghost, fromRect, toRect, 0, toRotation, 380);
+        } finally {
+            ghost?.remove();
+            card.classList.remove('is-source-hidden');
+            detail.hidden = true;
+            detail.setAttribute('aria-hidden', 'true');
+            detail.classList.remove('is-morphing');
+            canvas.classList.remove('is-detail-open');
+            clearDetail();
+
+            detailActiveCard = null;
+            detailAnimating = false;
+
+            if (restoreFocus) {
+                card.focus?.({ preventScroll: true });
+            }
+        }
+    }
+
+    cards.forEach((card, index) => {
+        const title = card.dataset.playTitle || `${DETAIL_DEFAULT_TITLE} ${index + 1}`;
+        let cardTouchStart = null;
+        let cardTouchMoved = false;
+
+        card.classList.add('is-clickable');
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-haspopup', 'dialog');
+        card.setAttribute('aria-label', title);
+
+        card.addEventListener('pointerdown', (e) => {
+            if (e.pointerType !== 'touch') return;
+            cardTouchStart = { x: e.clientX, y: e.clientY };
+            cardTouchMoved = false;
+        });
+
+        card.addEventListener('pointermove', (e) => {
+            if (!cardTouchStart || e.pointerType !== 'touch') return;
+            if (Math.hypot(e.clientX - cardTouchStart.x, e.clientY - cardTouchStart.y) > TOUCH_TAP_THRESHOLD) {
+                cardTouchMoved = true;
+            }
+        });
+
+        const resetCardTouch = () => {
+            cardTouchStart = null;
+            if (cardTouchMoved) {
+                window.setTimeout(() => {
+                    cardTouchMoved = false;
+                }, 0);
+                return;
+            }
+            cardTouchMoved = false;
+        };
+
+        card.addEventListener('pointerup', resetCardTouch);
+        card.addEventListener('pointercancel', resetCardTouch);
+
+        card.addEventListener('click', () => {
+            if (canvas.classList.contains('is-editing-layout')) return;
+            if (detailAnimating || detailActiveCard) return;
+            if (touchScrollMoved || cardTouchMoved) return;
+            openPlayCardDetail(card);
+        });
+
+        card.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (canvas.classList.contains('is-editing-layout')) return;
+            e.preventDefault();
+            if (detailAnimating || detailActiveCard) return;
+            openPlayCardDetail(card);
+        });
+    });
+
+    const requestDetailClose = (e) => {
+        e?.preventDefault?.();
+        closePlayCardDetail();
+    };
+
+    detailBackdrop?.addEventListener('pointerdown', requestDetailClose);
+    detailBackdrop?.addEventListener('click', requestDetailClose);
+
+    const shouldCloseFromOverlayTarget = (target) => {
+        if (!(target instanceof Element)) return false;
+        return !target.closest('.play-detail__stage');
+    };
+
+    detail?.addEventListener('pointerdown', (e) => {
+        if (shouldCloseFromOverlayTarget(e.target)) {
+            requestDetailClose(e);
+        }
+    });
+
+    detail?.addEventListener('click', (e) => {
+        if (shouldCloseFromOverlayTarget(e.target)) {
+            requestDetailClose(e);
+        }
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closePlayCardDetail({ restoreFocus: false });
+        }
+    });
 
     // ── Sticker placements (initial defaults, then layered saves) ────
     const savedStickers = readSavedStickerPositions();
-    canvas.querySelectorAll('[data-play-sticker]').forEach((el) => {
-        applyWorldPlacement(el);
+    stickers.forEach((el) => {
         const id = el.dataset.stickerId;
         if (id && savedStickers[id]) {
-            el.style.left = savedStickers[id].x + 'px';
-            el.style.top = savedStickers[id].y + 'px';
+            writePlacement(el, savedStickers[id]);
         }
     });
+    applySavedLayout();
 
     // ── Canvas scroll pan ─────────────────────────────────────────────
     let panX = 0;
@@ -921,6 +2021,14 @@ if (heroCamera) {
         const ty = Math.round(panY);
         const tf = `translate3d(${tx}px, ${ty}px, 0)`;
         world.style.transform = tf;
+        if (overlay) {
+            const basePanX = canvas.clientWidth / 2 - INITIAL_WORLD_CENTER_X;
+            const basePanY = canvas.clientHeight / 2 - INITIAL_WORLD_CENTER_Y;
+            const overlayOffsetX = Math.round((panX - basePanX) * 0.22);
+            const overlayOffsetY = Math.round((panY - basePanY) * 0.22);
+            overlay.style.setProperty('--play-overlay-offset-x', `${overlayOffsetX}px`);
+            overlay.style.setProperty('--play-overlay-offset-y', `${overlayOffsetY}px`);
+        }
         if (grid) {
             const { dotStep, lineStep } = readGridMetrics();
             const dotX = positiveModulo(tx, dotStep);
@@ -930,6 +2038,31 @@ if (heroCamera) {
             const lineY = positiveModulo(ty + lineOffset, lineStep);
             grid.style.backgroundPosition = `${dotX}px ${dotY}px, ${lineX}px ${lineY}px`;
         }
+        // Broadcast normalized pan progress so other modules (e.g. the bottom
+        // mascot's eyes) can react to the user navigating the canvas. Both
+        // axes are mapped to roughly -1..+1 around the centred starting pan,
+        // saturating at the clamp limits.
+        const vw = canvas.clientWidth;
+        const vh = canvas.clientHeight;
+        const edgePadding = getEdgePadding();
+        const minPanX = vw - contentBounds.maxX - edgePadding;
+        const maxPanX = edgePadding - contentBounds.minX;
+        const minPanY = vh - contentBounds.maxY - edgePadding;
+        const maxPanY = edgePadding - contentBounds.minY;
+        const normalize = (value, lo, hi) => {
+            if (hi <= lo) return 0;
+            const t = (value - lo) / (hi - lo);
+            // Map 0..1 → -1..+1 so the centred pan reads as 0.
+            return Math.max(-1, Math.min(1, t * 2 - 1));
+        };
+        canvas.dispatchEvent(new CustomEvent('playcanvas:pan', {
+            detail: {
+                panX, panY,
+                // Negate so "scrolled toward right/bottom of world" → +1.
+                progressX: -normalize(panX, minPanX, maxPanX),
+                progressY: -normalize(panY, minPanY, maxPanY)
+            }
+        }));
     }
 
     function centerInitialPan() {
@@ -945,10 +2078,14 @@ if (heroCamera) {
     window.addEventListener('resize', () => {
         contentBounds = getContentBounds();
         applyPan();
+        if (detailActiveCard && !detailAnimating) {
+            closePlayCardDetail({ restoreFocus: false });
+        }
     });
 
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
+        if (detailActiveCard || detailAnimating) return;
         const { dx, dy } = normalizeWheelDelta(e);
         // Natural scroll: scrolling down/right moves the world up/left,
         // revealing content further down/right in world coordinates.
@@ -965,7 +2102,10 @@ if (heroCamera) {
 
     canvas.addEventListener('pointerdown', (e) => {
         if (e.pointerType !== 'touch') return;
+        if (detailActiveCard || detailAnimating) return;
         if (e.target.closest('[data-play-sticker]')) return;
+        window.clearTimeout(touchScrollResetTimer);
+        touchScrollMoved = false;
         touchScrollActive = true;
         touchStartX = e.clientX;
         touchStartY = e.clientY;
@@ -977,6 +2117,9 @@ if (heroCamera) {
     canvas.addEventListener('pointermove', (e) => {
         if (!touchScrollActive || e.pointerType !== 'touch') return;
         e.preventDefault();
+        if (Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY) > TOUCH_TAP_THRESHOLD) {
+            touchScrollMoved = true;
+        }
         panX = touchStartPanX + (e.clientX - touchStartX);
         panY = touchStartPanY + (e.clientY - touchStartY);
         applyPan();
@@ -986,6 +2129,12 @@ if (heroCamera) {
         if (!touchScrollActive || e.pointerType !== 'touch') return;
         touchScrollActive = false;
         try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (touchScrollMoved) {
+            window.clearTimeout(touchScrollResetTimer);
+            touchScrollResetTimer = window.setTimeout(() => {
+                touchScrollMoved = false;
+            }, 0);
+        }
     }
     canvas.addEventListener('pointerup', endTouchScroll);
     canvas.addEventListener('pointercancel', endTouchScroll);
@@ -999,6 +2148,8 @@ if (heroCamera) {
         let dragStartTop = 0;
 
         sticker.addEventListener('pointerdown', (e) => {
+            if (canvas.classList.contains('is-editing-layout')) return;
+            if (detailActiveCard || detailAnimating) return;
             e.stopPropagation(); // sticker touch should drag the sticker, not scroll the canvas
             dragActive = true;
             dragStartX = e.clientX;
@@ -1013,8 +2164,10 @@ if (heroCamera) {
             if (!dragActive) return;
             // World scale is 1:1 (only translation), so pointer delta in
             // screen px maps directly to world-coord delta on the sticker.
-            sticker.style.left = (dragStartLeft + e.clientX - dragStartX) + 'px';
-            sticker.style.top  = (dragStartTop  + e.clientY - dragStartY) + 'px';
+            writePlacement(sticker, {
+                x: dragStartLeft + e.clientX - dragStartX,
+                y: dragStartTop + e.clientY - dragStartY
+            });
         });
 
         const endDrag = (e) => {
@@ -1034,5 +2187,360 @@ if (heroCamera) {
         sticker.addEventListener('pointerup', endDrag);
         sticker.addEventListener('pointercancel', endDrag);
     });
-})();
 
+    // ── Layout editor (cards + stickers) ─────────────────────────────
+    const editor = canvas.querySelector('[data-play-editor]');
+    const editorToggle = editor?.querySelector('[data-play-editor-toggle]');
+    const editorPanel = editor?.querySelector('[data-play-editor-panel]');
+    const editorCurrent = editor?.querySelector('[data-play-editor-current]');
+    const editorStatus = editor?.querySelector('[data-play-editor-status]');
+    const editorInputs = editor
+        ? Array.from(editor.querySelectorAll('[data-play-editor-input]')).reduce((map, input) => {
+            map[input.dataset.playEditorInput] = input;
+            return map;
+        }, {})
+        : {};
+    const editorActions = editor
+        ? Array.from(editor.querySelectorAll('[data-play-editor-action]'))
+        : [];
+    const editorSelection = canvas.querySelector('[data-play-editor-selection]');
+    const editorRotateHandle = canvas.querySelector('[data-play-editor-rotate-handle]');
+
+    let layoutEditing = false;
+    let selectedLayoutEl = null;
+    let editorStatusTimer = 0;
+
+    function getLayoutItemName(el) {
+        if (!el) return 'No selection';
+        return el.dataset.playTitle
+            || el.dataset.stickerId
+            || el.dataset.playLayoutId
+            || 'Selected item';
+    }
+
+    function setEditorStatus(message) {
+        if (!editorStatus) return;
+        window.clearTimeout(editorStatusTimer);
+        editorStatus.textContent = message;
+    }
+
+    function markEditorDirty() {
+        setEditorStatus('Unsaved');
+    }
+
+    function markEditorSaved(message = 'Saved') {
+        setEditorStatus(message);
+        window.clearTimeout(editorStatusTimer);
+        editorStatusTimer = window.setTimeout(() => {
+            if (layoutEditing) setEditorStatus('Saved');
+        }, 1400);
+    }
+
+    function syncEditorInputs() {
+        const placement = selectedLayoutEl ? readPlacement(selectedLayoutEl) : null;
+        Object.entries(editorInputs).forEach(([key, input]) => {
+            input.disabled = !placement;
+            input.value = placement ? String(Math.round((placement[key] || 0) * 10) / 10) : '';
+        });
+        if (editorCurrent) {
+            editorCurrent.textContent = getLayoutItemName(selectedLayoutEl);
+        }
+    }
+
+    function updateEditorSelectionFrame() {
+        if (!editorSelection || !layoutEditing || !selectedLayoutEl) {
+            if (editorSelection) editorSelection.hidden = true;
+            return;
+        }
+
+        const placement = readPlacement(selectedLayoutEl);
+        const width = placement.w || selectedLayoutEl.offsetWidth || 1;
+        const height = placement.h || selectedLayoutEl.offsetHeight || 1;
+        editorSelection.hidden = false;
+        editorSelection.style.left = `${placement.x + panX}px`;
+        editorSelection.style.top = `${placement.y + panY}px`;
+        editorSelection.style.width = `${width}px`;
+        editorSelection.style.height = `${height}px`;
+        editorSelection.style.transform = `rotate(${placement.rot || 0}deg)`;
+    }
+
+    function syncEditorAfterPlacementChange() {
+        contentBounds = getContentBounds();
+        applyPan();
+        syncEditorInputs();
+        updateEditorSelectionFrame();
+    }
+
+    function updateEditorPlacement(el, placement, { commit = false } = {}) {
+        if (!el) return;
+        writePlacement(el, placement);
+        syncEditorAfterPlacementChange();
+        markEditorDirty();
+        if (commit) {
+            savePlayLayout();
+            markEditorSaved();
+        }
+    }
+
+    function clearEditorSelection() {
+        if (selectedLayoutEl) selectedLayoutEl.classList.remove('is-layout-selected');
+        selectedLayoutEl = null;
+        syncEditorInputs();
+        updateEditorSelectionFrame();
+    }
+
+    function selectLayoutItem(el) {
+        if (!el || !layoutItems.includes(el)) return;
+        if (selectedLayoutEl && selectedLayoutEl !== el) {
+            selectedLayoutEl.classList.remove('is-layout-selected');
+        }
+        selectedLayoutEl = el;
+        selectedLayoutEl.classList.add('is-layout-selected');
+        syncEditorInputs();
+        updateEditorSelectionFrame();
+    }
+
+    function setLayoutEditing(nextEditing) {
+        layoutEditing = Boolean(nextEditing);
+        canvas.classList.toggle('is-editing-layout', layoutEditing);
+        editorToggle?.setAttribute('aria-pressed', String(layoutEditing));
+        if (editorToggle) editorToggle.textContent = layoutEditing ? 'Done editing' : 'Edit layout';
+        if (editorPanel) editorPanel.hidden = !layoutEditing;
+
+        if (layoutEditing) {
+            if (detailActiveCard) closePlayCardDetail({ restoreFocus: false });
+            setEditorStatus('Saved');
+        } else {
+            clearEditorSelection();
+            setEditorStatus('Saved');
+        }
+        updateEditorSelectionFrame();
+    }
+
+    function commitEditorLayout(message = 'Saved') {
+        savePlayLayout();
+        markEditorSaved(message);
+    }
+
+    function resetEditorLayout() {
+        try {
+            localStorage.removeItem(LAYOUT_STORAGE_KEY);
+            localStorage.removeItem(STORAGE_KEY);
+        } catch (e) {}
+
+        layoutItems.forEach((el, index) => {
+            const id = layoutItemId(el, index);
+            const placement = defaultLayout.get(id);
+            if (placement) writePlacement(el, placement);
+        });
+
+        syncEditorAfterPlacementChange();
+        markEditorSaved('Reset');
+    }
+
+    async function copyEditorLayout() {
+        const text = JSON.stringify(collectPlayLayout(), null, 2);
+        try {
+            await navigator.clipboard.writeText(text);
+            markEditorSaved('Copied');
+        } catch (e) {
+            const fallback = document.createElement('textarea');
+            fallback.value = text;
+            fallback.setAttribute('readonly', '');
+            fallback.style.position = 'fixed';
+            fallback.style.left = '-999px';
+            document.body.appendChild(fallback);
+            fallback.select();
+            try {
+                document.execCommand('copy');
+                markEditorSaved('Copied');
+            } catch (_) {
+                markEditorSaved('Copy failed');
+            }
+            fallback.remove();
+        }
+    }
+
+    function beginEditorMoveDrag(el, e) {
+        if (!layoutEditing || detailActiveCard || detailAnimating) return;
+        if (e.button !== 0 && e.pointerType !== 'touch') return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation?.();
+
+        selectLayoutItem(el);
+        const start = readPlacement(el);
+        const startClientX = e.clientX;
+        const startClientY = e.clientY;
+        const pointerId = e.pointerId;
+
+        el.classList.add('is-layout-dragging');
+        try { el.setPointerCapture(pointerId); } catch (_) {}
+
+        const onMove = (moveEvent) => {
+            if (moveEvent.pointerId !== pointerId) return;
+            moveEvent.preventDefault();
+            updateEditorPlacement(el, {
+                x: start.x + moveEvent.clientX - startClientX,
+                y: start.y + moveEvent.clientY - startClientY
+            });
+        };
+
+        const onEnd = (endEvent) => {
+            if (endEvent.pointerId !== pointerId) return;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onEnd);
+            window.removeEventListener('pointercancel', onEnd);
+            el.classList.remove('is-layout-dragging');
+            try { el.releasePointerCapture(pointerId); } catch (_) {}
+            commitEditorLayout();
+        };
+
+        window.addEventListener('pointermove', onMove, { passive: false });
+        window.addEventListener('pointerup', onEnd);
+        window.addEventListener('pointercancel', onEnd);
+    }
+
+    function beginEditorRotateDrag(e) {
+        if (!layoutEditing || !selectedLayoutEl) return;
+        if (e.button !== 0 && e.pointerType !== 'touch') return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const placement = readPlacement(selectedLayoutEl);
+        const width = placement.w || selectedLayoutEl.offsetWidth || 1;
+        const height = placement.h || selectedLayoutEl.offsetHeight || 1;
+        const centerX = placement.x + panX + width / 2;
+        const centerY = placement.y + panY + height / 2;
+        const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+        const startRotation = placement.rot || 0;
+        const pointerId = e.pointerId;
+
+        const onMove = (moveEvent) => {
+            if (moveEvent.pointerId !== pointerId) return;
+            moveEvent.preventDefault();
+            const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
+            const delta = (angle - startAngle) * 180 / Math.PI;
+            updateEditorPlacement(selectedLayoutEl, {
+                rot: startRotation + delta
+            });
+        };
+
+        const onEnd = (endEvent) => {
+            if (endEvent.pointerId !== pointerId) return;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onEnd);
+            window.removeEventListener('pointercancel', onEnd);
+            commitEditorLayout();
+        };
+
+        window.addEventListener('pointermove', onMove, { passive: false });
+        window.addEventListener('pointerup', onEnd);
+        window.addEventListener('pointercancel', onEnd);
+    }
+
+    layoutItems.forEach((item) => {
+        item.addEventListener('pointerdown', (e) => {
+            if (!layoutEditing) return;
+            beginEditorMoveDrag(item, e);
+        }, true);
+    });
+
+    editorToggle?.addEventListener('click', (e) => {
+        e.preventDefault();
+        setLayoutEditing(!layoutEditing);
+    });
+
+    Object.entries(editorInputs).forEach(([key, input]) => {
+        input.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+        });
+        input.addEventListener('change', () => {
+            if (!selectedLayoutEl) return;
+            const value = parseFloat(input.value);
+            if (Number.isNaN(value)) {
+                syncEditorInputs();
+                return;
+            }
+            updateEditorPlacement(selectedLayoutEl, { [key]: value }, { commit: true });
+        });
+    });
+
+    editorActions.forEach((button) => {
+        button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const action = button.dataset.playEditorAction;
+
+            if (action === 'save') {
+                commitEditorLayout();
+                return;
+            }
+            if (action === 'copy') {
+                await copyEditorLayout();
+                return;
+            }
+            if (action === 'reset') {
+                resetEditorLayout();
+                return;
+            }
+            if (!selectedLayoutEl) {
+                markEditorSaved('Select an item');
+                return;
+            }
+
+            const placement = readPlacement(selectedLayoutEl);
+            const zValues = layoutItems.map((el, index) => readPlacement(el, index + 1).z);
+            const minZ = Math.min(...zValues);
+            const maxZ = Math.max(...zValues);
+
+            if (action === 'rotate-left') {
+                updateEditorPlacement(selectedLayoutEl, { rot: placement.rot - 5 }, { commit: true });
+            } else if (action === 'rotate-right') {
+                updateEditorPlacement(selectedLayoutEl, { rot: placement.rot + 5 }, { commit: true });
+            } else if (action === 'send-back') {
+                updateEditorPlacement(selectedLayoutEl, { z: minZ - 1 }, { commit: true });
+            } else if (action === 'bring-front') {
+                updateEditorPlacement(selectedLayoutEl, { z: maxZ + 1 }, { commit: true });
+            }
+        });
+    });
+
+    editorRotateHandle?.addEventListener('pointerdown', beginEditorRotateDrag);
+
+    canvas.addEventListener('playcanvas:pan', updateEditorSelectionFrame);
+    window.addEventListener('resize', updateEditorSelectionFrame);
+    window.addEventListener('keydown', (e) => {
+        if (!layoutEditing) return;
+        const target = e.target;
+        if (target instanceof Element && target.closest('input, textarea, select')) return;
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            setLayoutEditing(false);
+            return;
+        }
+        if (!selectedLayoutEl) return;
+
+        const placement = readPlacement(selectedLayoutEl);
+        const step = e.shiftKey ? 10 : 1;
+        let nextPlacement = null;
+
+        if (e.key === 'ArrowLeft') nextPlacement = { x: placement.x - step };
+        if (e.key === 'ArrowRight') nextPlacement = { x: placement.x + step };
+        if (e.key === 'ArrowUp') nextPlacement = { y: placement.y - step };
+        if (e.key === 'ArrowDown') nextPlacement = { y: placement.y + step };
+        if (e.key === '[') nextPlacement = { rot: placement.rot - step };
+        if (e.key === ']') nextPlacement = { rot: placement.rot + step };
+        if (e.key === 'PageDown') nextPlacement = { z: placement.z - 1 };
+        if (e.key === 'PageUp') nextPlacement = { z: placement.z + 1 };
+
+        if (!nextPlacement) return;
+        e.preventDefault();
+        updateEditorPlacement(selectedLayoutEl, nextPlacement, { commit: true });
+    });
+
+    syncEditorInputs();
+    updateEditorSelectionFrame();
+})();

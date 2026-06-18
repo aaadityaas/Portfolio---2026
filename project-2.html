@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-case-study-id="growth-experiments">
 
 <head>
     <meta charset="UTF-8">
@@ -11,12 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <!-- GSAP for page-fade transition (must load before script.js) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"></script>
-    <!-- Page-transition bootstrap: if we got here from the homepage's
-         fade-out, hide body BEFORE first paint and pin <html> to the
-         current theme's bg colour so there is no flash of content or
-         wrong-mode bg between pages. script.js fades body back in. -->
     <script>
         (function () {
             try {
@@ -34,10 +29,26 @@
     </script>
 </head>
 
-<body class="pajelly-cs-body">
+<body class="pajelly-cs-body cs-page">
+
+    <div id="portfolio-loader" class="portfolio-loader" aria-live="polite" aria-busy="true" role="status"
+        aria-valuetext="Loading portfolio">
+        <div class="portfolio-loader__grid" aria-hidden="true"></div>
+        <div class="portfolio-loader__stage">
+            <div class="portfolio-loader__orbit">
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+            </div>
+        </div>
+    </div>
+
     <div data-site-header data-page="work"></div>
 
-    <main class="pajelly-cs-main">
+    <main class="cs-main">
 
         <a class="cs-back" href="index.html#work" aria-label="Back to homepage">
             <svg class="cs-back__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -48,219 +59,20 @@
             <span>Back</span>
         </a>
 
-        <section class="pajelly-cs-header">
-            <h1 class="pajelly-title">Growth Experiments — Zeta Pay</h1>
-            <p class="pajelly-subtitle">Four seasonal campaigns that turned transactions into moments</p>
-        </section>
+        <header class="cs-page-header">
+            <h1 class="cs-page-header__title pajelly-title">Growth Experiments — Zeta Pay</h1>
+            <p class="cs-page-header__subtitle pajelly-subtitle"></p>
+            <dl class="cs-page-header__meta" data-meta-row></dl>
+        </header>
 
-        <div class="pajelly-cs-hero-img">
-            <img src="asset/water.png" alt="Zeta Pay growth campaign visuals">
-        </div>
+        <div class="cs-page-hero pajelly-cs-hero-img"></div>
 
-        <!-- Post-hero: 2-column layout — sidebar index + content -->
-        <div class="cs-body-layout">
+        <div class="cs-content"></div>
 
-            <nav class="cs-index" aria-label="Case study sections">
-                <a href="#cs-overview" class="cs-index__link is-active">Overview</a>
-                <a href="#cs-ipl" class="cs-index__link">IPL Run Chase</a>
-                <a href="#cs-wrapped" class="cs-index__link">Year in Review</a>
-                <a href="#cs-valentine" class="cs-index__link">Valentine's Day</a>
-                <a href="#cs-holi" class="cs-index__link">Holi Interactive</a>
-            </nav>
-
-            <div class="cs-content">
-
-                <!-- Overview -->
-                <section class="pajelly-cs-grid cs-section" id="cs-overview">
-                    <div class="pajelly-grid-left">
-                        <h4 class="pajelly-label">OVERVIEW</h4>
-                        <p class="pajelly-desc">Growth isn't always a single big swing. Four experiments across seasonal
-                            moments, each designed to make the app feel alive and worth engaging beyond transactions.</p>
-                    </div>
-                    <div class="pajelly-grid-right">
-                        <div class="pajelly-meta-block">
-                            <h4 class="pajelly-label">DURATION</h4>
-                            <p class="pajelly-val">6 months</p>
-                        </div>
-                        <div class="pajelly-meta-block">
-                            <h4 class="pajelly-label">ROLE</h4>
-                            <p class="pajelly-val">Lead Designer</p>
-                        </div>
-                        <div class="pajelly-meta-block">
-                            <h4 class="pajelly-label">FOCUS</h4>
-                            <p class="pajelly-val">Seasonal growth · Campaign UX</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- IPL Run Chase -->
-                <section class="pajelly-feature growth-exp cs-section" id="cs-ipl" aria-labelledby="exp-01-title">
-                    <p class="feature-label">Cricket season</p>
-                    <h3 class="feature-title" id="exp-01-title">IPL Run Chase</h3>
-                    <p class="feature-body"><span class="growth-exp__field">Objective</span>Gamify payments around the
-                        Indian Premier League</p>
-                    <p class="feature-body"><span class="growth-exp__field">How it worked</span>Every payment earned
-                        runs. Users accumulated runs, ranked on a live leaderboard, and top performers won exclusive
-                        IPL-themed rewards.</p>
-                    <p class="feature-body"><span class="growth-exp__field">Design challenge</span>Design an entire
-                        campaign ecosystem — entry points, confirmation states, leaderboard UI, rewards catalogue, and
-                        parallel micro-campaigns — without cluttering the core payment flow.</p>
-                    <p class="feature-body"><span class="growth-exp__field">What I focused on</span>Bringing cricket
-                        energy into a financial app without feeling gimmicky. Real-time leaderboard competitiveness,
-                        desirable rewards, and seamless integration within existing app architecture.</p>
-                    <p class="feature-body"><span class="growth-exp__field">Outcome</span>Full-scale engagement campaign
-                        running parallel to IPL season</p>
-
-                    <div class="feature-image-wrapper">
-                        <div class="placeholder-graphic growth-exp__placeholder" aria-hidden="true">[ IPL Run Chase —
-                            hero campaign visual ]</div>
-                    </div>
-
-                    <div class="growth-exp__grid growth-exp__grid--3">
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Entry point ]</div>
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Leaderboard ]</div>
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Rewards catalogue ]</div>
-                    </div>
-
-                    <div class="growth-exp__grid growth-exp__grid--2">
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Confirmation state ]</div>
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Micro-campaign ]</div>
-                    </div>
-
-                    <div class="feature-image-wrapper">
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--video"
-                            aria-hidden="true">[ IPL Run Chase — video / interaction ]</div>
-                    </div>
-                </section>
-
-                <!-- Year in Review -->
-                <section class="pajelly-feature growth-exp cs-section" id="cs-wrapped"
-                    aria-labelledby="exp-02-title">
-                    <p class="feature-label">Year-end</p>
-                    <h3 class="feature-title" id="exp-02-title">Year in Review (Wrapped)</h3>
-                    <p class="feature-body"><span class="growth-exp__field">Objective</span>Create a shareable,
-                        personalised year-end experience</p>
-                    <p class="feature-body"><span class="growth-exp__field">How it worked</span>Quiz-style flipbook with
-                        swipeable cards revealing personalised insights: top spend categories, biggest transactions,
-                        most-used features.</p>
-                    <p class="feature-body"><span class="growth-exp__field">Design challenge</span>Ship in a short
-                        runway. The entire interaction model — flipbook format, reveal animations, copy tone — was
-                        designed and built by the design team with no external reference.</p>
-                    <p class="feature-body"><span class="growth-exp__field">What I focused on</span>Making each card a
-                        small surprise. Pacing, visual hierarchy, and the arc from small facts to satisfying summary were
-                        deliberate design decisions.</p>
-                    <p class="feature-body"><span class="growth-exp__field">Outcome</span>Shipped to entire user base
-                    </p>
-
-                    <div class="feature-image-wrapper">
-                        <div class="placeholder-graphic growth-exp__placeholder" aria-hidden="true">[ Year in Review —
-                            flipbook / cards ]</div>
-                    </div>
-
-                    <div class="growth-exp__grid growth-exp__grid--2">
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Wrapped card — insights ]</div>
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Wrapped card — summary ]</div>
-                    </div>
-                </section>
-
-                <!-- Valentine's Day -->
-                <section class="pajelly-feature growth-exp cs-section" id="cs-valentine"
-                    aria-labelledby="exp-03-title">
-                    <p class="feature-label">February</p>
-                    <h3 class="feature-title" id="exp-03-title">Valentine's Day Cross-Sell</h3>
-                    <p class="feature-body"><span class="growth-exp__field">Objective</span>Surface relevant products at
-                        an emotionally resonant moment</p>
-                    <p class="feature-body"><span class="growth-exp__field">How it worked</span>Different user segments
-                        shown different cross-sell products wrapped in an interactive Valentine's Day experience.</p>
-                    <p class="feature-body"><span class="growth-exp__field">Design challenge</span>Make cross-sell feel
-                        contextual and intentional, not intrusive. Personalisation by segment was critical.</p>
-                    <p class="feature-body"><span class="growth-exp__field">What I focused on</span>Justifying the
-                        interactive layer. The design had to prove it earned user attention, not just add noise.</p>
-                    <p class="feature-body"><span class="growth-exp__field">Outcome</span>Strong CTR and meaningful
-                        conversions across segments</p>
-
-                    <div class="feature-image-wrapper">
-                        <div class="placeholder-graphic growth-exp__placeholder" aria-hidden="true">[ Valentine's
-                            cross-sell — hero ]</div>
-                    </div>
-
-                    <div class="growth-exp__grid growth-exp__grid--2">
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Segment A flow ]</div>
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Segment B flow ]</div>
-                    </div>
-                </section>
-
-                <!-- Holi Interactive -->
-                <section class="pajelly-feature growth-exp cs-section" id="cs-holi"
-                    aria-labelledby="exp-04-title">
-                    <p class="feature-label">Holi / spring</p>
-                    <h3 class="feature-title" id="exp-04-title">Holi Interactive</h3>
-                    <p class="feature-body growth-exp__stub">Copy for this experiment is pending — add objective, how it
-                        worked, design challenge, focus, and outcome when ready.</p>
-
-                    <div class="feature-image-wrapper">
-                        <div class="placeholder-graphic growth-exp__placeholder" aria-hidden="true">[ Holi Interactive —
-                            hero ]</div>
-                    </div>
-
-                    <div class="growth-exp__grid growth-exp__grid--2">
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Holi — screen 1 ]</div>
-                        <div class="placeholder-graphic growth-exp__placeholder growth-exp__placeholder--sm"
-                            aria-hidden="true">[ Holi — screen 2 ]</div>
-                    </div>
-                </section>
-
-            </div><!-- /.cs-content -->
-        </div><!-- /.cs-body-layout -->
-
-        <footer class="pajelly-cs-footer">
-            <div class="footer-left">
-                <h4 class="footer-title">PROJECT</h4>
-                <p class="footer-name">Growth Experiments — Zeta Pay</p>
-                <p class="footer-role">Lead Designer · 6 months</p>
-            </div>
-            <div class="footer-right">
-                <img src="asset/appstore-badge.svg" alt="" style="height: 48px; opacity: 0.3;">
-            </div>
-        </footer>
-
-        <div data-site-footer="minimal"></div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="case-study-editor.js"></script>
     <script src="script.js"></script>
-    <script src="asset/dappled-footer-shader.js"></script>
-
-    <script>
-    (function () {
-        const links = document.querySelectorAll('.cs-index__link');
-        const sections = document.querySelectorAll('.cs-section');
-        if (!links.length || !sections.length) return;
-
-        const observer = new IntersectionObserver(entries => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    links.forEach(l => l.classList.remove('is-active'));
-                    const id = entry.target.id;
-                    const active = document.querySelector('.cs-index__link[href="#' + id + '"]');
-                    if (active) active.classList.add('is-active');
-                }
-            });
-        }, { rootMargin: '-20% 0px -60% 0px' });
-
-        sections.forEach(s => observer.observe(s));
-    })();
-    </script>
 </body>
 
 </html>

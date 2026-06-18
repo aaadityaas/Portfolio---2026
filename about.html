@@ -14,6 +14,22 @@
 </head>
 
 <body class="about-page">
+
+    <!-- Full-screen preload until window + media/iframes are ready (portfolio-loader-* in style.css + script.js) -->
+    <div id="portfolio-loader" class="portfolio-loader" aria-live="polite" aria-busy="true" role="status"
+        aria-valuetext="Loading portfolio">
+        <div class="portfolio-loader__grid" aria-hidden="true"></div>
+        <div class="portfolio-loader__stage">
+            <div class="portfolio-loader__orbit">
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+                <span class="portfolio-loader__pixel" aria-hidden="true"></span>
+            </div>
+        </div>
+    </div>
     <script>
         try { if (localStorage.getItem('portfolio-theme') === 'dark') document.body.classList.add('night-mode'); } catch (e) {}
     </script>
@@ -23,7 +39,7 @@
         <div class="about-shell">
             <section class="about-stage" aria-labelledby="about-title">
                 <figure class="about-visual">
-                    <img src="asset/water.png" alt="Portrait of Aditya">
+                    <img src="asset/me.avif" alt="Portrait of Aditya">
                     <figcaption class="about-visual-caption">it's me, hi!</figcaption>
                 </figure>
 
@@ -175,9 +191,7 @@
         <div data-site-footer="minimal"></div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="script.js"></script>
-    <script src="asset/dappled-footer-shader.js"></script>
 </body>
 
 </html>

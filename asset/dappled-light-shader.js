@@ -312,7 +312,7 @@
     function sizeFromCanvas() {
         const w = Math.max(1, canvas.clientWidth | 0);
         const h = Math.max(1, canvas.clientHeight | 0);
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
         renderer.setPixelRatio(dpr);
         renderer.setSize(w, h, false);
         // u_resolution is in physical pixels so the GLSL blur radii (12, 26,
@@ -351,21 +351,36 @@
         ro.observe(canvas);
     }
 
-    // Pause when the tab is hidden so we don't burn battery off-screen.
+    // Pause when the tab is hidden or the strip is off-screen so we don't
+    // burn GPU time after the hero has scrolled away.
     let documentVisible = !document.hidden;
-    document.addEventListener('visibilitychange', () => {
-        documentVisible = !document.hidden;
-        if (documentVisible && rafId === null) {
-            clock.start();
-            rafId = requestAnimationFrame(tick);
-        }
-    });
-
+    let canvasVisible = true;
     const clock = new THREE.Clock();
     let rafId = null;
 
+    function requestLoop() {
+        if (rafId !== null || !documentVisible || !canvasVisible) return;
+        clock.start();
+        rafId = requestAnimationFrame(tick);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        documentVisible = !document.hidden;
+        requestLoop();
+    });
+
+    if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                canvasVisible = entry.isIntersecting;
+                requestLoop();
+            });
+        }, { rootMargin: '160px 0px' });
+        io.observe(canvas);
+    }
+
     function tick() {
-        if (!documentVisible) {
+        if (!documentVisible || !canvasVisible) {
             rafId = null;
             return;
         }
@@ -382,16 +397,13 @@
         rafId = requestAnimationFrame(tick);
     }
 
-    rafId = requestAnimationFrame(tick);
+    requestLoop();
 
     // If the user toggles reduce-motion mid-session, restart the loop so
     // we render the static frame (or resume the live loop, if turned off).
     if (typeof reducedMotion.addEventListener === 'function') {
         reducedMotion.addEventListener('change', () => {
-            if (rafId === null && documentVisible) {
-                clock.start();
-                rafId = requestAnimationFrame(tick);
-            }
+            requestLoop();
         });
     }
 })();
