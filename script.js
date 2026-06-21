@@ -691,6 +691,337 @@ const modalBackdrop = document.getElementById('modal-backdrop');
 const modalClose = document.getElementById('modal-close');
 const workCards = document.querySelectorAll('.work-card');
 const homeWorkCards = document.querySelectorAll('#work-wall .work-card');
+const HOME_CARD_EDITOR_KEY = 'portfolio-home-card-editor:v1';
+let homeCardEditorActive = false;
+let activeHomeCardEditorCard = null;
+
+function getHomeCardKey(card, index = 0) {
+    return Array.from(card.classList).find(className => /^card-\d+$/.test(className)) || `card-${index + 1}`;
+}
+
+function readHomeCardEditorState() {
+    try {
+        const raw = window.localStorage.getItem(HOME_CARD_EDITOR_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+        console.warn('Unable to read homepage card editor state', error);
+        return {};
+    }
+}
+
+function saveHomeCardEditorState(state) {
+    try {
+        window.localStorage.setItem(HOME_CARD_EDITOR_KEY, JSON.stringify(state));
+        return true;
+    } catch (error) {
+        console.warn('Unable to save homepage card editor state', error);
+        return false;
+    }
+}
+
+const homeCardEditorState = readHomeCardEditorState();
+
+function applyHomeCardImageState(card, cardState) {
+    const content = card.querySelector('.card-content');
+    if (!content) return;
+    if (!content.dataset.homeCardDefaultImage) {
+        content.dataset.homeCardDefaultImage = content.style.backgroundImage || '';
+    }
+
+    let image = content.querySelector('.home-card-edit-image');
+    if (!cardState?.src) {
+        content.classList.remove('card-content--custom-image');
+        if (image) image.remove();
+        return;
+    }
+
+    if (!image) {
+        image = document.createElement('img');
+        image.className = 'home-card-edit-image';
+        image.alt = '';
+        image.decoding = 'async';
+        image.draggable = false;
+        content.prepend(image);
+    }
+
+    image.src = cardState.src;
+    image.style.setProperty('--home-card-img-x', `${Number(cardState.x) || 0}px`);
+    image.style.setProperty('--home-card-img-y', `${Number(cardState.y) || 0}px`);
+    image.style.setProperty('--home-card-img-scale', `${Number(cardState.scale) || 1}`);
+    image.style.setProperty('--home-card-img-rotate', `${Number(cardState.rotate) || 0}deg`);
+    content.classList.add('card-content--custom-image');
+    content.style.backgroundImage = content.dataset.homeCardDefaultImage;
+}
+
+function updateHomeCardEditorControls(card, cardState) {
+    const panel = card.querySelector('.home-card-editor-panel');
+    if (!panel) return;
+    const scaleInput = panel.querySelector('[data-home-card-scale]');
+    const rotateInput = panel.querySelector('[data-home-card-rotate]');
+    const rotateNumberInput = panel.querySelector('[data-home-card-rotate-number]');
+    const xInput = panel.querySelector('[data-home-card-x]');
+    const yInput = panel.querySelector('[data-home-card-y]');
+    if (scaleInput) scaleInput.value = String(Number(cardState?.scale) || 1);
+    if (rotateInput) rotateInput.value = String(Number(cardState?.rotate) || 0);
+    if (rotateNumberInput) rotateNumberInput.value = String(Math.round(Number(cardState?.rotate) || 0));
+    if (xInput) xInput.value = String(Math.round(Number(cardState?.x) || 0));
+    if (yInput) yInput.value = String(Math.round(Number(cardState?.y) || 0));
+}
+
+function persistHomeCardState(card, nextState) {
+    const key = card.dataset.homeCardKey;
+    if (!key) return;
+    const cleanedState = {
+        src: nextState.src,
+        x: Number(nextState.x) || 0,
+        y: Number(nextState.y) || 0,
+        scale: Number(nextState.scale) || 1,
+        rotate: Number(nextState.rotate) || 0
+    };
+    homeCardEditorState[key] = cleanedState;
+    applyHomeCardImageState(card, cleanedState);
+    updateHomeCardEditorControls(card, cleanedState);
+    saveHomeCardEditorState(homeCardEditorState);
+}
+
+function setActiveHomeCardEditorCard(card) {
+    if (!card) return;
+    homeWorkCards.forEach(workCard => {
+        workCard.classList.toggle('is-home-card-editor-selected', workCard === card);
+    });
+    activeHomeCardEditorCard = card;
+}
+
+function setHomeCardImageFromFile(card, file, scale = 1) {
+    if (!card || !file || !file.type?.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+        persistHomeCardState(card, {
+            src: String(reader.result || ''),
+            x: 0,
+            y: 0,
+            scale: Number(scale) || 1,
+            rotate: 0
+        });
+        setActiveHomeCardEditorCard(card);
+    });
+    reader.readAsDataURL(file);
+}
+
+function getClipboardImageFile(event) {
+    const files = Array.from(event.clipboardData?.files || []);
+    const file = files.find(item => item.type?.startsWith('image/'));
+    if (file) return file;
+
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageItem = items.find(item => item.type?.startsWith('image/'));
+    return imageItem?.getAsFile() || null;
+}
+
+async function pasteHomeCardImageFromClipboard(card, scale = 1) {
+    if (!navigator.clipboard?.read) return false;
+    const clipboardItems = await navigator.clipboard.read();
+    for (const item of clipboardItems) {
+        const imageType = item.types.find(type => type.startsWith('image/'));
+        if (!imageType) continue;
+        const blob = await item.getType(imageType);
+        const file = new File([blob], `home-card-image.${imageType.split('/')[1] || 'png'}`, { type: imageType });
+        setHomeCardImageFromFile(card, file, scale);
+        return true;
+    }
+    return false;
+}
+
+function setupHomeCardEditor() {
+    if (!homeWorkCards.length) return;
+
+    const workWall = document.getElementById('work-wall');
+    const projectsHeader = document.querySelector('.projects-header');
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'home-card-editor-toggle';
+    toggle.textContent = 'Edit project cards';
+    toggle.setAttribute('aria-pressed', 'false');
+    (projectsHeader || workWall).appendChild(toggle);
+
+    const setEditorActive = (active) => {
+        homeCardEditorActive = active;
+        document.body.classList.toggle('home-card-editor-active', active);
+        toggle.classList.toggle('is-active', active);
+        toggle.setAttribute('aria-pressed', active ? 'true' : 'false');
+        toggle.textContent = active ? 'Done editing cards' : 'Edit project cards';
+        if (active) {
+            hideCursorTooltip(0);
+            cursorDot.classList.remove('cursor-dot--hover');
+        }
+    };
+
+    toggle.addEventListener('click', () => setEditorActive(!homeCardEditorActive));
+
+    homeWorkCards.forEach((card, index) => {
+        const key = getHomeCardKey(card, index);
+        const existingState = homeCardEditorState[key];
+        card.dataset.homeCardKey = key;
+        if (existingState?.src) {
+            applyHomeCardImageState(card, existingState);
+        }
+
+        const panel = document.createElement('div');
+        panel.className = 'home-card-editor-panel';
+        panel.innerHTML = `
+            <div class="home-card-editor-panel__row">
+                <span class="home-card-editor-panel__title">${escapeHTML(card.getAttribute('data-title') || `Project ${index + 1}`)}</span>
+                <button type="button" data-home-card-pick>Upload</button>
+                <button type="button" data-home-card-paste>Paste</button>
+                <button type="button" data-home-card-center>Center</button>
+                <button type="button" data-home-card-reset>Reset</button>
+            </div>
+            <label class="home-card-editor-panel__control">
+                <span>Scale</span>
+                <input type="range" min="0.6" max="2.4" step="0.01" value="${Number(existingState?.scale) || 1}" data-home-card-scale>
+            </label>
+            <label class="home-card-editor-panel__control">
+                <span>Rotate</span>
+                <input type="range" min="-180" max="180" step="1" value="${Number(existingState?.rotate) || 0}" data-home-card-rotate>
+                <input type="number" min="-180" max="180" step="1" value="${Math.round(Number(existingState?.rotate) || 0)}" data-home-card-rotate-number>
+            </label>
+            <div class="home-card-editor-panel__coords">
+                <label><span>X</span><input type="number" step="1" value="${Math.round(Number(existingState?.x) || 0)}" data-home-card-x></label>
+                <label><span>Y</span><input type="number" step="1" value="${Math.round(Number(existingState?.y) || 0)}" data-home-card-y></label>
+            </div>
+            <input type="file" accept="image/*" data-home-card-file hidden>
+        `;
+        card.appendChild(panel);
+
+        const fileInput = panel.querySelector('[data-home-card-file]');
+        const pickButton = panel.querySelector('[data-home-card-pick]');
+        const pasteButton = panel.querySelector('[data-home-card-paste]');
+        const centerButton = panel.querySelector('[data-home-card-center]');
+        const resetButton = panel.querySelector('[data-home-card-reset]');
+        const scaleInput = panel.querySelector('[data-home-card-scale]');
+        const rotateInput = panel.querySelector('[data-home-card-rotate]');
+        const rotateNumberInput = panel.querySelector('[data-home-card-rotate-number]');
+        const xInput = panel.querySelector('[data-home-card-x]');
+        const yInput = panel.querySelector('[data-home-card-y]');
+
+        panel.addEventListener('pointerdown', event => event.stopPropagation());
+        panel.addEventListener('click', event => event.stopPropagation());
+
+        pickButton?.addEventListener('click', () => {
+            setActiveHomeCardEditorCard(card);
+            fileInput?.click();
+        });
+        fileInput?.addEventListener('change', () => {
+            const file = fileInput.files?.[0];
+            setHomeCardImageFromFile(card, file, Number(scaleInput?.value) || 1);
+            fileInput.value = '';
+        });
+        pasteButton?.addEventListener('click', async () => {
+            setActiveHomeCardEditorCard(card);
+            try {
+                await pasteHomeCardImageFromClipboard(card, Number(scaleInput?.value) || 1);
+            } catch (error) {
+                console.warn('Unable to paste homepage card image', error);
+            }
+        });
+
+        resetButton?.addEventListener('click', () => {
+            delete homeCardEditorState[key];
+            saveHomeCardEditorState(homeCardEditorState);
+            applyHomeCardImageState(card, null);
+            updateHomeCardEditorControls(card, { x: 0, y: 0, scale: 1, rotate: 0 });
+        });
+
+        centerButton?.addEventListener('click', () => {
+            const current = homeCardEditorState[key];
+            if (!current?.src) return;
+            persistHomeCardState(card, {
+                ...current,
+                x: 0,
+                y: 0
+            });
+        });
+
+        const updateFromInputs = () => {
+            const current = homeCardEditorState[key];
+            if (!current?.src) return;
+            const rotate = Number(rotateInput?.value ?? rotateNumberInput?.value) || 0;
+            persistHomeCardState(card, {
+                src: current.src,
+                x: Number(xInput?.value) || 0,
+                y: Number(yInput?.value) || 0,
+                scale: Number(scaleInput?.value) || 1,
+                rotate
+            });
+        };
+
+        scaleInput?.addEventListener('input', updateFromInputs);
+        rotateInput?.addEventListener('input', () => {
+            if (rotateNumberInput) rotateNumberInput.value = rotateInput.value;
+            updateFromInputs();
+        });
+        rotateNumberInput?.addEventListener('input', () => {
+            if (rotateInput) rotateInput.value = rotateNumberInput.value;
+            updateFromInputs();
+        });
+        xInput?.addEventListener('input', updateFromInputs);
+        yInput?.addEventListener('input', updateFromInputs);
+
+        let dragStart = null;
+        card.addEventListener('pointerdown', (event) => {
+            if (!homeCardEditorActive || event.button !== 0) return;
+            setActiveHomeCardEditorCard(card);
+            const current = homeCardEditorState[key];
+            if (!current?.src) return;
+            event.preventDefault();
+            event.stopPropagation();
+            card.setPointerCapture?.(event.pointerId);
+            dragStart = {
+                pointerId: event.pointerId,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                x: Number(current.x) || 0,
+                y: Number(current.y) || 0
+            };
+            card.classList.add('is-home-card-dragging');
+        });
+
+        card.addEventListener('pointermove', (event) => {
+            if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+            const current = homeCardEditorState[key];
+            if (!current?.src) return;
+            persistHomeCardState(card, {
+                ...current,
+                x: dragStart.x + event.clientX - dragStart.clientX,
+                y: dragStart.y + event.clientY - dragStart.clientY
+            });
+        });
+
+        const stopDrag = (event) => {
+            if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+            dragStart = null;
+            card.classList.remove('is-home-card-dragging');
+        };
+        card.addEventListener('pointerup', stopDrag);
+        card.addEventListener('pointercancel', stopDrag);
+    });
+
+    workWall?.addEventListener('click', (event) => {
+        if (!homeCardEditorActive) return;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
+
+    document.addEventListener('paste', (event) => {
+        if (!homeCardEditorActive) return;
+        const file = getClipboardImageFile(event);
+        if (!file) return;
+        const targetCard = activeHomeCardEditorCard || homeWorkCards[0];
+        const targetScale = targetCard?.querySelector('[data-home-card-scale]')?.value || 1;
+        event.preventDefault();
+        setHomeCardImageFromFile(targetCard, file, targetScale);
+    });
+}
 
 // Create dynamic custom cursor label for the homepage project cards.
 const cursorLabel = document.createElement('div');
@@ -807,10 +1138,13 @@ function expandCursorTooltip(card) {
     }, isSwitchingCards ? 80 : 140);
 }
 
+setupHomeCardEditor();
+
 workCards.forEach(card => {
     const link = card.getAttribute('data-link');
 
     const navigateToCardLink = () => {
+        if (homeCardEditorActive && card.closest('#work-wall')) return;
         if (!link) return;
         cursorLabel.style.opacity = '0';
         if (typeof cursorDot !== 'undefined' && cursorDot) {
@@ -829,6 +1163,7 @@ workCards.forEach(card => {
 
     card.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
+            if (homeCardEditorActive && card.closest('#work-wall')) return;
             e.preventDefault();
             navigateToCardLink();
         }

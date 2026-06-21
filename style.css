@@ -2679,6 +2679,15 @@ body.webgl-cards #work-wall .card-content {
     opacity: 0;
 }
 
+body.home-card-editor-active.webgl-cards #work-wall .card-content,
+body.webgl-cards #work-wall .card-content.card-content--custom-image {
+    opacity: 1;
+}
+
+body.home-card-editor-active .work-shader-canvas {
+    opacity: 0;
+}
+
 body.webgl-cards #work-wall .work-card__lottie,
 body.webgl-cards #work-wall .work-card__center-image {
     opacity: 0;
@@ -2805,6 +2814,26 @@ body.webgl-cards #work-wall .work-card:focus-visible {
     transform-origin: center;
     transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
         filter 0.55s ease;
+}
+
+#work-wall .card-content--custom-image {
+    overflow: hidden;
+}
+
+#work-wall .home-card-edit-image {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(72%, 420px);
+    height: auto;
+    max-height: 78%;
+    max-width: none;
+    object-fit: contain;
+    transform: translate(-50%, -50%) translate(var(--home-card-img-x, 0px), var(--home-card-img-y, 0px)) rotate(var(--home-card-img-rotate, 0deg)) scale(var(--home-card-img-scale, 1));
+    transform-origin: center;
+    user-select: none;
+    -webkit-user-drag: none;
+    z-index: 2;
 }
 
 #work-wall .card-content::after {
@@ -3006,6 +3035,158 @@ body.webgl-cards #work-wall .work-card:focus-visible {
 #work-wall .work-card:focus-visible {
     outline: 2px solid rgba(88, 124, 228, 0.55);
     outline-offset: 4px;
+}
+
+.projects-header {
+    position: relative;
+}
+
+.home-card-editor-toggle {
+    position: absolute;
+    right: 0;
+    bottom: 4px;
+    z-index: 20;
+    border: 1px solid rgba(18, 18, 18, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
+    color: #171717;
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.12);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 10px 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.home-card-editor-toggle.is-active {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+}
+
+body.home-card-editor-active #work-wall .work-card {
+    cursor: grab;
+    outline: 1px solid rgba(0, 102, 255, 0.26);
+    outline-offset: 5px;
+}
+
+body.home-card-editor-active #work-wall .work-card.is-home-card-editor-selected {
+    outline: 2px solid rgba(0, 102, 255, 0.72);
+}
+
+body.home-card-editor-active #work-wall .work-card.is-home-card-dragging {
+    cursor: grabbing;
+}
+
+body.home-card-editor-active #work-wall .work-card__meta {
+    pointer-events: none;
+}
+
+.home-card-editor-panel {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    z-index: 9;
+    display: none;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #111827;
+    box-shadow: 0 16px 42px rgba(15, 23, 42, 0.16);
+    font-family: 'Inter', sans-serif;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+body.home-card-editor-active .home-card-editor-panel {
+    display: grid;
+}
+
+.home-card-editor-panel__row,
+.home-card-editor-panel__coords,
+.home-card-editor-panel__control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.home-card-editor-panel__row {
+    flex-wrap: wrap;
+}
+
+.home-card-editor-panel__title {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.home-card-editor-panel button {
+    border: 0;
+    border-radius: 7px;
+    background: #111827;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1;
+    padding: 8px 10px;
+}
+
+.home-card-editor-panel button[data-home-card-reset] {
+    background: rgba(17, 24, 39, 0.08);
+    color: #111827;
+}
+
+.home-card-editor-panel__control span,
+.home-card-editor-panel__coords span {
+    color: #4b5563;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.home-card-editor-panel__control input[type="range"] {
+    min-width: 0;
+    flex: 1;
+}
+
+.home-card-editor-panel__control input[type="number"] {
+    width: 58px;
+    min-width: 58px;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.72);
+    color: #111827;
+    font: 700 12px/1 'Inter', sans-serif;
+    padding: 8px;
+}
+
+.home-card-editor-panel__coords label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+}
+
+.home-card-editor-panel__coords input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.72);
+    color: #111827;
+    font: 700 12px/1 'Inter', sans-serif;
+    padding: 8px;
 }
 
 /* =========================================================
