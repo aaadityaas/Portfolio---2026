@@ -189,13 +189,7 @@
             const bg = contentEl.style.backgroundImage || '';
             const match = bg.match(/url\((['"]?)(.*?)\1\)/);
             if (!match || !match[2]) return;
-            const url = typeof window.netlifyImageUrl === 'function'
-                ? window.netlifyImageUrl(match[2], {
-                    element: contentEl,
-                    maxWidth: Math.min(900, Math.ceil(contentEl.getBoundingClientRect().width * 2) || 720),
-                    quality: 75
-                })
-                : match[2];
+            const url = match[2];
 
             const texture = textureLoader.load(
                 url,

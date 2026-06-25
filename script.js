@@ -1858,10 +1858,7 @@ if (topContainer && centerContainer && bottomContainer) {
         loopImages.forEach(src => {
             const div = document.createElement('div');
             div.className = 'ticker-image-wrapper';
-            const optimizedSrc = typeof window.netlifyImageUrl === 'function'
-                ? window.netlifyImageUrl(src, { maxWidth: 960, quality: 72 })
-                : src;
-            div.innerHTML = `<img src="${optimizedSrc}" alt="" loading="lazy" decoding="async" fetchpriority="low">`;
+            div.innerHTML = `<img src="${src}" alt="" loading="lazy" decoding="async" fetchpriority="low">`;
             container.appendChild(div);
         });
     });

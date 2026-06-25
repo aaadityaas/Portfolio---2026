@@ -952,17 +952,6 @@
        UID, so the editor can re-target updates without re-rendering everything.
        --------------------------------------------------------------------------- */
 
-    function optimizeDisplaySrc(src, element, options = {}) {
-        if (!src || typeof src !== 'string') return src;
-        if (src.startsWith('blob:') || src.startsWith('data:')) return src;
-        if (typeof window.netlifyImageUrl !== 'function') return src;
-        return window.netlifyImageUrl(src, {
-            element,
-            maxWidth: options.isHero ? 1200 : 1080,
-            quality: options.isHero ? 78 : 75
-        });
-    }
-
     function whenMediaNearViewport(node, callback) {
         if (typeof IntersectionObserver !== 'function') {
             callback();
@@ -978,9 +967,8 @@
         observer.observe(node);
     }
 
-    function applyResolvedImage(img, src, options = {}) {
-        const displaySrc = optimizeDisplaySrc(src, img, options);
-        if (displaySrc) img.setAttribute('src', displaySrc);
+    function applyResolvedImage(img, src) {
+        if (src) img.setAttribute('src', src);
     }
 
     function captionEl(value, block, field = 'caption') {
@@ -1050,11 +1038,10 @@
                         fetchpriority: isHero ? 'high' : 'low'
                     }
                 });
-                if (isHero) img.setAttribute('data-netlify-priority', 'high');
                 slot.appendChild(img);
 
                 const loadImage = (resolvedSrc) => {
-                    applyResolvedImage(img, resolvedSrc || src, { isHero });
+                    applyResolvedImage(img, resolvedSrc || src);
                 };
 
                 const startImageLoad = () => {
