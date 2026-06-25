@@ -28,7 +28,7 @@
     // is not masked by an older browser draft in localStorage.
     const CONTENT_VERSION = CASE_ID === 'growth-experiments'
         ? 'v5'
-        : (CASE_ID === 'zapp-account' ? 'v4' : (CASE_ID === 'now-and-me' ? 'v4' : (CASE_ID === 'project-3' ? 'v3' : 'v2')));
+        : (CASE_ID === 'zapp-account' ? 'v5' : (CASE_ID === 'now-and-me' ? 'v4' : (CASE_ID === 'project-3' ? 'v3' : 'v2')));
     const INDEXED_CASE_STUDIES = new Set(['zapp-account', 'growth-experiments', 'project-3', 'now-and-me']);
     const STORAGE_KEY = `cs-editor-draft:${CONTENT_VERSION}:${CASE_ID}`;
     const PUBLISHED_KEY = `cs-editor-published:${CONTENT_VERSION}:${CASE_ID}`;
@@ -50,8 +50,8 @@
         'cs-asset:zapp-account:1781960639879:be21i6quu': 'asset/case-studies/zapp-account/bbwcmexhv-image.png',
         'cs-asset:zapp-account:1781960650114:b7g1yobdm': 'asset/case-studies/zapp-account/bkw4g7p6d-image.png',
         'cs-asset:zapp-account:1781856232150:bc8yjynts': 'asset/case-studies/zapp-account/busact944-zapp-account-busact944.png',
-        'cs-asset:zapp-account:1781979790777:bshl8ycca': 'asset/case-studies/zapp-account/bsy7x35a2-screen-recording-jun-20-2026-from-kommodo.gif',
-        'cs-asset:zapp-account:1781856244196:bl0lzy1g3': 'asset/case-studies/zapp-account/b3o4grj75-screenrecording2026-06-19at12-48-40pm-ezgif-com-crop-1.gif',
+        'cs-asset:zapp-account:1781979790777:bshl8ycca': 'asset/case-studies/zapp-account/onboarding.mp4',
+        'cs-asset:zapp-account:1781856244196:bl0lzy1g3': 'asset/case-studies/zapp-account/zapp-home.mp4',
         'cs-asset:zapp-account:1781857889963:b375vscv0': 'asset/case-studies/zapp-account/b5591rluy-image.png',
         'cs-asset:growth-experiments:1781886666080:bi5uwrly0': 'asset/water.png'
     };
@@ -79,7 +79,7 @@
         {
             path: ['design', 6, 'media'],
             src: 'cs-asset:zapp-account:1781856244196:bl0lzy1g3',
-            mimeType: 'image/gif'
+            mimeType: 'video/mp4'
         }
     ];
     const assetUrlCache = new Map();
@@ -997,8 +997,10 @@
                 const mimeType = block.mediaMimeType || (block.localAsset && block.localAsset.mimeType) || mimeTypeFromDataUrl(src);
                 const video = el('video', {
                     attrs: {
-                        controls: true,
+                        controls: block.controls === false ? false : true,
                         muted: true,
+                        autoplay: block.autoplay === true,
+                        loop: block.loop === true,
                         playsinline: true,
                         preload: isHero ? 'auto' : 'none'
                     }
@@ -1017,10 +1019,16 @@
                             if (resolvedSrc && source) {
                                 source.setAttribute('src', resolvedSrc);
                                 video.load();
+                                if (block.autoplay === true && typeof video.play === 'function') {
+                                    video.play().catch(() => {});
+                                }
                             }
                         }).catch(() => {});
                     } else if (!video.querySelector('source')?.getAttribute('src')) {
                         video.load();
+                        if (block.autoplay === true && typeof video.play === 'function') {
+                            video.play().catch(() => {});
+                        }
                     }
                 };
 
