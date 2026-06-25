@@ -28,7 +28,8 @@
     // is not masked by an older browser draft in localStorage.
     const CONTENT_VERSION = CASE_ID === 'growth-experiments'
         ? 'v4'
-        : (CASE_ID === 'zapp-account' ? 'v3' : 'v2');
+        : (CASE_ID === 'zapp-account' ? 'v3' : (CASE_ID === 'project-3' || CASE_ID === 'now-and-me' ? 'v3' : 'v2'));
+    const INDEXED_CASE_STUDIES = new Set(['zapp-account', 'growth-experiments', 'project-3', 'now-and-me']);
     const STORAGE_KEY = `cs-editor-draft:${CONTENT_VERSION}:${CASE_ID}`;
     const PUBLISHED_KEY = `cs-editor-published:${CONTENT_VERSION}:${CASE_ID}`;
     const ASSET_DB_NAME = 'cs-editor-assets';
@@ -44,6 +45,33 @@
         'cs-asset:zapp-account:1781856244196:bl0lzy1g3': 'asset/case-studies/zapp-account/b3o4grj75-screenrecording2026-06-19at12-48-40pm-ezgif-com-crop-1.gif',
         'cs-asset:zapp-account:1781857889963:b375vscv0': 'asset/case-studies/zapp-account/b5591rluy-image.png'
     };
+    const ZAPP_LOCAL_MEDIA_PATCHES = [
+        {
+            path: ['process', 4, 'media'],
+            src: 'cs-asset:zapp-account:1781856232078:b6kfqytkq',
+            mimeType: 'image/png'
+        },
+        {
+            path: ['process', 5, 'media'],
+            src: 'cs-asset:zapp-account:1781856232145:b9y94ch6q',
+            mimeType: 'image/png'
+        },
+        {
+            path: ['process', 11],
+            src: 'cs-asset:zapp-account:1781856232150:bc8yjynts',
+            mimeType: 'image/png'
+        },
+        {
+            path: ['design', 3],
+            src: 'cs-asset:zapp-account:1781856232150:bc8yjynts',
+            mimeType: 'image/png'
+        },
+        {
+            path: ['design', 6, 'media'],
+            src: 'cs-asset:zapp-account:1781856244196:bl0lzy1g3',
+            mimeType: 'image/gif'
+        }
+    ];
     const assetUrlCache = new Map();
     const SECTION_ID_MAP = {
         overview: 'cs-overview',
@@ -178,7 +206,7 @@
                 { key: 'team',     label: 'Team',     value: '5 Designers' },
                 { key: 'timeline', label: 'Timeline', value: 'Growth experiments' }
             ],
-            hero: { type: 'image', src: '', alt: 'Growth Experiments hero' },
+            hero: { type: 'image', src: 'asset/water.png', alt: 'Growth Experiments hero' },
             sections: [
                 { id: 'overview', label: 'Overview', blocks: [
                     { type: 'section-label', label: 'Overview' },
@@ -221,8 +249,57 @@
                 ] }
             ]
         },
-        'project-3':         blankDoc('project-3', 'Case study'),
-        'now-and-me':        blankDoc('now-and-me', 'Now&Me')
+        'project-3': {
+            id: 'project-3',
+            title: 'Butterfly Meadow',
+            subtitle: 'Whimsical landscape with fluttering butterflies in a sun-drenched field.',
+            meta: defaultMeta(),
+            hero: { type: 'image', src: 'asset/project-3-night-meadow-background.jpg', alt: 'Butterfly Meadow hero' },
+            sections: [
+                { id: 'overview', label: 'Overview', blocks: [
+                    { type: 'section-label', label: 'Overview' },
+                    { type: 'text', body: '' }
+                ] },
+                { id: 'process', label: 'Process', blocks: [
+                    { type: 'section-label', label: 'Process' },
+                    { type: 'text', body: '' }
+                ] },
+                { id: 'reflection', label: 'Reflection', indexLabel: 'Reflections', blocks: [
+                    { type: 'section-label', label: 'Reflection' },
+                    { type: 'text', body: '' }
+                ] }
+            ]
+        },
+        'now-and-me': {
+            id: 'now-and-me',
+            title: 'Now&Me',
+            subtitle: 'App revamp, design system, and website — 9 months at Now&Me.',
+            meta: [
+                { key: 'timeline', label: 'Timeline', value: 'Jan 2023 – Sep 2023' },
+                { key: 'platform', label: 'Platform', value: 'iOS, Android, Web' },
+                { key: 'role',     label: 'Role',     value: 'Product Designer' },
+                { key: 'team',     label: 'Team',     value: '' }
+            ],
+            hero: { type: 'image', src: 'asset/project-4-green-background.jpg', alt: 'Now&Me hero' },
+            sections: [
+                { id: 'overview', label: 'Overview', blocks: [
+                    { type: 'section-label', label: 'Overview' },
+                    { type: 'text', body: '' }
+                ] },
+                { id: 'process', label: 'Process', blocks: [
+                    { type: 'section-label', label: 'Process' },
+                    { type: 'text', body: '' }
+                ] },
+                { id: 'design', label: 'Design', blocks: [
+                    { type: 'section-label', label: 'Design' },
+                    { type: 'text', body: '' }
+                ] },
+                { id: 'reflection', label: 'Reflection', indexLabel: 'Reflections', blocks: [
+                    { type: 'section-label', label: 'Reflection' },
+                    { type: 'text', body: '' }
+                ] }
+            ]
+        }
     };
 
     /* ---------------------------------------------------------------------------
@@ -230,6 +307,7 @@
        --------------------------------------------------------------------------- */
 
     let doc = loadDoc();
+    applyLocalCaseStudyAssetDefaults(doc);
     ensureGrowthOfferDiscoverySection(doc);
     // Keep the in-place editor available while case studies are still being built.
     let mode = 'view';
@@ -241,9 +319,6 @@
     let savedFlashTimer = null;
     let indexRaf = 0;
     let activeIndexTarget = '';
-    let hasIndexActiveInitialized = false;
-    let suppressContextTarget = '';
-    let sectionContextTimer = 0;
     let activeMediaSlot = null;
     let richTextToolbar = null;
     let activeEditableNode = null;
@@ -280,6 +355,24 @@
         section.label = 'Offer Discovery';
         section.blocks = offerDiscoveryBlocks();
         ensureIds(targetDoc);
+    }
+
+    function applyLocalCaseStudyAssetDefaults(targetDoc) {
+        if (CASE_ID !== 'zapp-account' || !targetDoc || !Array.isArray(targetDoc.sections)) return false;
+        let changed = false;
+        ZAPP_LOCAL_MEDIA_PATCHES.forEach((patch) => {
+            const [sectionId, blockIndex, childKey] = patch.path;
+            const section = targetDoc.sections.find((item) => item.id === sectionId);
+            const block = section && Array.isArray(section.blocks) ? section.blocks[blockIndex] : null;
+            const target = childKey ? block && block[childKey] : block;
+            if (!target || typeof target !== 'object') return;
+            if (typeof target.src === 'string' && target.src.trim()) return;
+            target.src = patch.src;
+            target.mediaMimeType = patch.mimeType;
+            if (childKey && block && !block.mediaMimeType) block.mediaMimeType = patch.mimeType;
+            changed = true;
+        });
+        return changed;
     }
 
     function ensureIds(node) {
@@ -1136,7 +1229,7 @@
             cell.appendChild(value);
 
             const label = el('div', { class: 'cs-stat__label' });
-            label.dataset.placeholder = 'Label';
+            label.dataset.placeholder = 'ABC';
             applyEditable(label, item, 'label', item.label || '');
             cell.appendChild(label);
 
@@ -1943,17 +2036,6 @@
                 link.style.transform = isActive ? 'translateX(18px)' : '';
             }
         });
-
-        const activeLink = links.find((link) => link.dataset.target === active.id);
-        if (CASE_ID === 'growth-experiments' && activeLink) {
-            if (suppressContextTarget === active.id) {
-                suppressContextTarget = '';
-            } else if (hasIndexActiveInitialized && shouldShowSectionContext(activeLink, links)) {
-                showSectionContext(activeLink.textContent.trim());
-            } else {
-                hasIndexActiveInitialized = true;
-            }
-        }
     }
 
     function requestIndexActiveUpdate() {
@@ -1962,101 +2044,13 @@
     }
 
     function isIndexedCaseStudy() {
-        return CASE_ID === 'zapp-account' || CASE_ID === 'growth-experiments';
+        return INDEXED_CASE_STUDIES.has(CASE_ID);
     }
 
-    function showSectionContext(label, options = {}) {
-        if (CASE_ID !== 'growth-experiments' || !label) return;
-        const content = document.querySelector('.cs-body-layout--growth .cs-body-layout__content');
-        if (!content) return;
-
-        const reduceMotion = window.matchMedia &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        let overlay = content.querySelector('.cs-index-washout');
-        if (!overlay) {
-            overlay = el('div', { class: 'cs-index-washout', attrs: { 'aria-hidden': 'true' } });
-            overlay.appendChild(el('span', { class: 'cs-index-washout__label' }));
-            content.appendChild(overlay);
-        }
-        syncSectionContextBounds(overlay, content);
-
-        const labelEl = overlay.querySelector('.cs-index-washout__label');
-        labelEl.textContent = label;
-        overlay.classList.add('is-active');
-        if (sectionContextTimer) clearTimeout(sectionContextTimer);
-
-        if (typeof gsap !== 'undefined' && !reduceMotion) {
-            gsap.killTweensOf([overlay, labelEl]);
-            gsap.set(overlay, { autoAlpha: 0, y: 18 });
-            gsap.set(labelEl, { autoAlpha: 0, y: 30, scale: 0.985 });
-            const tl = gsap.timeline({
-                defaults: { overwrite: 'auto' },
-                onComplete: () => overlay.classList.remove('is-active')
-            });
-            tl.to(overlay, {
-                autoAlpha: 1,
-                y: 0,
-                duration: 0.5,
-                ease: 'power3.out'
-            });
-            tl.to(labelEl, {
-                autoAlpha: 1,
-                y: 0,
-                scale: 1,
-                duration: 0.72,
-                ease: 'power4.out'
-            }, '<0.1');
-            tl.to({}, { duration: options.hold || 1.25 });
-            tl.to(labelEl, {
-                autoAlpha: 0,
-                y: -28,
-                scale: 1.006,
-                duration: 0.86,
-                ease: 'power3.inOut'
-            });
-            tl.to(overlay, {
-                autoAlpha: 0,
-                y: -18,
-                duration: 0.9,
-                ease: 'power3.inOut'
-            }, '<0.12');
-        } else {
-            overlay.classList.add('is-active');
-            sectionContextTimer = setTimeout(() => {
-                overlay.classList.remove('is-active');
-            }, 1000);
-        }
-    }
-
-    function shouldShowSectionContext(link, links) {
-        const index = links.indexOf(link);
-        return index > 0 && index < links.length - 1;
-    }
-
-    function syncSectionContextBounds(overlay, content) {
-        if (!overlay || !content) return;
-        const rect = content.getBoundingClientRect();
-        overlay.style.left = `${Math.round(rect.left)}px`;
-        overlay.style.width = `${Math.round(rect.width)}px`;
-    }
-
-    function runIndexWashout(link, target) {
-        if (CASE_ID !== 'growth-experiments') return false;
-        const links = [...document.querySelectorAll('.cs-body-layout--growth .cs-index__link')];
-        if (!shouldShowSectionContext(link, links)) return false;
-        const targetSection = document.getElementById(target);
-        if (!targetSection) return false;
-        suppressContextTarget = target;
-        showSectionContext(link.textContent.trim(), { hold: 1.35 });
-
-        window.setTimeout(() => {
-            targetSection.scrollIntoView({ block: 'start', behavior: 'instant' });
-            if (history && typeof history.replaceState === 'function') {
-                history.replaceState(null, '', `#${target}`);
-            }
-            requestIndexActiveUpdate();
-        }, 180);
-        return true;
+    function indexedLayoutClass() {
+        return CASE_ID === 'zapp-account'
+            ? 'cs-body-layout cs-body-layout--indexed cs-body-layout--zapp'
+            : 'cs-body-layout cs-body-layout--indexed cs-body-layout--growth';
     }
 
     function renderHero() {
@@ -2142,10 +2136,7 @@
 
         const cta = content.querySelector('.cs-cta-row');
         if (isIndexedCaseStudy()) {
-            const layoutClass = CASE_ID === 'zapp-account'
-                ? 'cs-body-layout cs-body-layout--indexed cs-body-layout--zapp'
-                : 'cs-body-layout cs-body-layout--indexed cs-body-layout--growth';
-            const layout = el('div', { class: layoutClass });
+            const layout = el('div', { class: indexedLayoutClass() });
             const sectionWrap = el('div', { class: 'cs-body-layout__content' });
             layout.appendChild(renderIndex(doc.sections));
             doc.sections.forEach((section) => {
@@ -2182,8 +2173,6 @@
         renderContent();
         updateToolbar();
         activeIndexTarget = '';
-        hasIndexActiveInitialized = false;
-        suppressContextTarget = '';
         requestIndexActiveUpdate();
     }
 
@@ -2286,13 +2275,6 @@
         if (isIndexedCaseStudy()) {
             window.addEventListener('scroll', requestIndexActiveUpdate, { passive: true });
             window.addEventListener('resize', requestIndexActiveUpdate, { passive: true });
-            document.addEventListener('click', (ev) => {
-                const link = ev.target.closest && ev.target.closest('.cs-body-layout--growth .cs-index__link');
-                if (!link) return;
-                const target = link.dataset.target;
-                if (!target || !document.getElementById(target)) return;
-                if (runIndexWashout(link, target)) ev.preventDefault();
-            });
         }
     }
 
