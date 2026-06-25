@@ -493,38 +493,6 @@ footerMounts.forEach(mount => {
     `;
 });
 
-(function initWorkCardLotties() {
-    const targets = Array.from(document.querySelectorAll('[data-lottie-src]'));
-    if (!targets.length || typeof window.lottie === 'undefined') return;
-
-    const reducedMotion = window.matchMedia
-        ? window.matchMedia('(prefers-reduced-motion: reduce)')
-        : { matches: false };
-
-    targets.forEach(target => {
-        const path = target.getAttribute('data-lottie-src');
-        if (!path) return;
-
-        const animation = window.lottie.loadAnimation({
-            container: target,
-            renderer: 'svg',
-            loop: !reducedMotion.matches,
-            autoplay: !reducedMotion.matches,
-            path,
-            rendererSettings: {
-                preserveAspectRatio: 'xMidYMid meet',
-                progressiveLoad: true
-            }
-        });
-
-        if (reducedMotion.matches) {
-            animation.addEventListener('DOMLoaded', () => {
-                animation.goToAndStop(0, true);
-            });
-        }
-    });
-})();
-
 (function initFooterGrassSceneMotion() {
     const scenes = Array.from(document.querySelectorAll('[data-footer-grass-scene]'));
     if (!scenes.length) return;

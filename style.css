@@ -2679,7 +2679,6 @@ body.webgl-cards #work-wall .card-content {
     opacity: 0;
 }
 
-body.webgl-cards #work-wall .work-card__lottie,
 body.webgl-cards #work-wall .work-card__center-image {
     opacity: 0;
 }
@@ -2778,8 +2777,7 @@ body.webgl-cards #work-wall .work-card:focus-visible {
     backdrop-filter: blur(14px);
 }
 
-#work-wall .work-card__center-image,
-#work-wall .work-card__lottie {
+#work-wall .work-card__center-image {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -2794,32 +2792,6 @@ body.webgl-cards #work-wall .work-card:focus-visible {
 
 #work-wall .work-card__center-image {
     object-fit: contain;
-}
-
-#work-wall .work-card__lottie {
-    width: min(62%, 280px);
-    aspect-ratio: 1;
-}
-
-#work-wall .card-1 .work-card__lottie {
-    width: min(80%, 360px);
-    transform: translate(-50%, -50%) scale(1.08);
-    transform-origin: center center;
-}
-
-#work-wall .work-card__lottie--bottom {
-    top: auto;
-    bottom: 0;
-    width: min(86%, 330px);
-    aspect-ratio: 393 / 720;
-    transform: translateX(-50%);
-    transform-origin: center bottom;
-}
-
-#work-wall .work-card__lottie svg {
-    display: block;
-    width: 100% !important;
-    height: 100% !important;
 }
 
 #work-wall .card-content {
@@ -4542,7 +4514,6 @@ body.night-mode.webgl-cards #work-wall .work-card {
 }
 
 body.night-mode.webgl-cards #work-wall .card-content,
-body.night-mode.webgl-cards #work-wall .work-card__lottie,
 body.night-mode.webgl-cards #work-wall .work-card__center-image {
     opacity: 0;
 }
