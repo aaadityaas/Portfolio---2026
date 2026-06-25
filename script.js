@@ -27,23 +27,6 @@ function getCurrentThemeName() {
     const el = document.getElementById('portfolio-loader');
     if (!el || !document.body) return;
 
-    const LOADER_SEEN_KEY = 'portfolio-loader-seen';
-
-    function skipLoaderInstantly() {
-        el.classList.add('portfolio-loader--done');
-        document.body.classList.remove('portfolio-loader-active');
-        el.setAttribute('aria-hidden', 'true');
-        el.setAttribute('aria-busy', 'false');
-        if (el.parentNode) el.parentNode.removeChild(el);
-    }
-
-    try {
-        if (sessionStorage.getItem(LOADER_SEEN_KEY) === '1') {
-            skipLoaderInstantly();
-            return;
-        }
-    } catch (_) { /* private mode */ }
-
     const prefersReducedMotion =
         window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -300,10 +283,6 @@ function getCurrentThemeName() {
 
     /** @returns {void} */
     function finishLoading() {
-        try {
-            sessionStorage.setItem(LOADER_SEEN_KEY, '1');
-        } catch (_) { /* ignore */ }
-
         el.classList.add('portfolio-loader--done');
         document.body.classList.remove('portfolio-loader-active');
         el.setAttribute('aria-busy', 'false');
@@ -336,14 +315,16 @@ function getCurrentThemeName() {
         idleFrame().then(finishLoading);
     }
 
-    watchdogHandle = window.setTimeout(() => dismissOnce(), 550);
+    watchdogHandle = window.setTimeout(() => dismissOnce(), 14000);
 
     startInfinityLoop();
 
+    const mediaReady = window.PortfolioMediaPreload?.ready || Promise.resolve();
+
     Promise.all([
         domReadyPromise(),
-        idleFrame(),
-        new Promise(r => window.setTimeout(r, 80))
+        mediaReady,
+        idleFrame()
     ])
         .then(() => dismissOnce())
         .catch(() => dismissOnce());
