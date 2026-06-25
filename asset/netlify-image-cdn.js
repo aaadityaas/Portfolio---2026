@@ -1,7 +1,7 @@
 (function () {
     const CDN_PATH = '/.netlify/images';
-    const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|avif|gif)(?:[?#].*)?$/i;
-    const SKIP_EXTENSIONS = /\.(svg|mp4|mov|m4v|webm|json|mp3|wav|ogg|ttf|woff2?)(?:[?#].*)?$/i;
+    const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|avif)(?:[?#].*)?$/i;
+    const SKIP_EXTENSIONS = /\.(gif|svg|mp4|mov|m4v|webm|json|mp3|wav|ogg|ttf|woff2?)(?:[?#].*)?$/i;
     const WIDTHS = [240, 320, 480, 640, 768, 960, 1200, 1440, 1600, 1920, 2400];
     const DEFAULT_QUALITY = 82;
     const backgroundProbes = new Set();
@@ -88,18 +88,32 @@
         }
     };
 
+    let isApplying = false;
+
     const rewriteImage = (img) => {
         if (img.dataset.netlifyCdnFailed === 'true' || img.dataset.netlifyImageCdn === 'skip') return;
+        if (img.dataset.netlifyImageCdn === 'done') return;
 
-        const original = img.dataset.netlifyCdnOriginalSrc || img.getAttribute('src');
+        const currentSrc = img.getAttribute('src');
+        const original = img.dataset.netlifyCdnOriginalSrc || currentSrc;
         if (!original || !isEligibleImage(original)) return;
 
         const cdnSrc = netlifyImageUrl(original, { element: img });
         if (cdnSrc === original) return;
 
-        img.dataset.netlifyCdnOriginalSrc = original;
+        if (!img.dataset.netlifyCdnOriginalSrc) {
+            img.dataset.netlifyCdnOriginalSrc = original;
+        }
+
+        if (currentSrc === cdnSrc) {
+            img.dataset.netlifyImageCdn = 'done';
+            rewriteSrcset(img);
+            return;
+        }
+
         img.addEventListener('error', restoreOriginalImage, { once: true });
         img.setAttribute('src', cdnSrc);
+        img.dataset.netlifyImageCdn = 'done';
 
         if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
         if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
@@ -123,19 +137,31 @@
 
     const rewritePoster = (video) => {
         if (video.dataset.netlifyCdnFailed === 'true' || video.dataset.netlifyImageCdn === 'skip') return;
+        if (video.dataset.netlifyImageCdn === 'done') return;
 
-        const original = video.dataset.netlifyCdnOriginalPoster || video.getAttribute('poster');
+        const currentPoster = video.getAttribute('poster');
+        const original = video.dataset.netlifyCdnOriginalPoster || currentPoster;
         if (!original || !isEligibleImage(original)) return;
 
         const cdnPoster = netlifyImageUrl(original, { element: video });
         if (cdnPoster === original) return;
 
-        video.dataset.netlifyCdnOriginalPoster = original;
+        if (!video.dataset.netlifyCdnOriginalPoster) {
+            video.dataset.netlifyCdnOriginalPoster = original;
+        }
+
+        if (currentPoster === cdnPoster) {
+            video.dataset.netlifyImageCdn = 'done';
+            return;
+        }
+
         video.setAttribute('poster', cdnPoster);
+        video.dataset.netlifyImageCdn = 'done';
     };
 
     const rewriteInlineBackground = (element) => {
         if (element.dataset.netlifyCdnFailed === 'true' || element.dataset.netlifyImageCdn === 'skip') return;
+        if (element.dataset.netlifyImageCdn === 'done') return;
 
         const style = element.getAttribute('style');
         if (!style || !style.includes('url(')) return;
@@ -152,6 +178,7 @@
         if (rewritten !== style) {
             element.dataset.netlifyCdnOriginalStyle = style;
             element.setAttribute('style', rewritten);
+            element.dataset.netlifyImageCdn = 'done';
             cdnUrls.forEach((cdnUrl) => {
                 const probe = new Image();
                 backgroundProbes.add(probe);
@@ -169,16 +196,21 @@
     };
 
     const rewriteNode = (root = document) => {
-        if (!enabled) return;
+        if (!enabled || isApplying) return;
 
-        const elementRoot = root.nodeType === Node.ELEMENT_NODE ? root : document;
-        if (elementRoot.matches?.('img')) rewriteImage(elementRoot);
-        if (elementRoot.matches?.('video[poster]')) rewritePoster(elementRoot);
-        if (elementRoot.matches?.('[style*="url("]')) rewriteInlineBackground(elementRoot);
+        isApplying = true;
+        try {
+            const elementRoot = root.nodeType === Node.ELEMENT_NODE ? root : document;
+            if (elementRoot.matches?.('img')) rewriteImage(elementRoot);
+            if (elementRoot.matches?.('video[poster]')) rewritePoster(elementRoot);
+            if (elementRoot.matches?.('[style*="url("]')) rewriteInlineBackground(elementRoot);
 
-        elementRoot.querySelectorAll?.('img').forEach(rewriteImage);
-        elementRoot.querySelectorAll?.('video[poster]').forEach(rewritePoster);
-        elementRoot.querySelectorAll?.('[style*="url("]').forEach(rewriteInlineBackground);
+            elementRoot.querySelectorAll?.('img').forEach(rewriteImage);
+            elementRoot.querySelectorAll?.('video[poster]').forEach(rewritePoster);
+            elementRoot.querySelectorAll?.('[style*="url("]').forEach(rewriteInlineBackground);
+        } finally {
+            isApplying = false;
+        }
     };
 
     if (enabled) {

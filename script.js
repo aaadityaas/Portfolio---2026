@@ -103,8 +103,12 @@ function getCurrentThemeName() {
     let animationGen = 0;
 
     function fontsReadyPromise() {
-        if (document.fonts && document.fonts.ready)
-            return document.fonts.ready.then(() => {}).catch(() => {});
+        if (document.fonts && document.fonts.ready) {
+            return Promise.race([
+                document.fonts.ready.then(() => {}).catch(() => {}),
+                new Promise(resolve => window.setTimeout(resolve, 1400))
+            ]);
+        }
         return Promise.resolve();
     }
 
@@ -313,7 +317,7 @@ function getCurrentThemeName() {
         idleFrame().then(finishLoading);
     }
 
-    watchdogHandle = window.setTimeout(() => dismissOnce(), 22000);
+    watchdogHandle = window.setTimeout(() => dismissOnce(), 6500);
 
     startInfinityLoop();
 
