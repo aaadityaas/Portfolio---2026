@@ -7910,7 +7910,17 @@ html[data-cs-mode="edit"] .cs-editor-media-slot {
 }
 
 .cs-editor-media-slot--video > video {
-    object-fit: contain;
+    width: calc(100% + 6px);
+    height: calc(100% + 9px);
+    object-fit: cover;
+    transform: translate3d(-3px, -3px, 0) scale(1.05);
+    transform-origin: center;
+    pointer-events: none;
+}
+
+.cs-editor-media-slot--video > video::-webkit-media-controls,
+.cs-editor-media-slot--video > video::-webkit-media-controls-enclosure {
+    display: none !important;
 }
 
 .cs-editor-media-slot--gif-crop > img {

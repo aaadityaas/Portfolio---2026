@@ -28,7 +28,7 @@
     // is not masked by an older browser draft in localStorage.
     const CONTENT_VERSION = CASE_ID === 'growth-experiments'
         ? 'v5'
-        : (CASE_ID === 'zapp-account' ? 'v5' : (CASE_ID === 'now-and-me' ? 'v4' : (CASE_ID === 'project-3' ? 'v3' : 'v2')));
+        : (CASE_ID === 'zapp-account' ? 'v6' : (CASE_ID === 'now-and-me' ? 'v4' : (CASE_ID === 'project-3' ? 'v3' : 'v2')));
     const INDEXED_CASE_STUDIES = new Set(['zapp-account', 'growth-experiments', 'project-3', 'now-and-me']);
     const STORAGE_KEY = `cs-editor-draft:${CONTENT_VERSION}:${CASE_ID}`;
     const PUBLISHED_KEY = `cs-editor-published:${CONTENT_VERSION}:${CASE_ID}`;
@@ -78,8 +78,21 @@
         },
         {
             path: ['design', 6, 'media'],
+            src: 'cs-asset:zapp-account:1781979790777:bshl8ycca',
+            mimeType: 'video/mp4',
+            mediaType: 'video',
+            autoplay: true,
+            loop: true,
+            controls: false
+        },
+        {
+            path: ['design', 8, 'media'],
             src: 'cs-asset:zapp-account:1781856244196:bl0lzy1g3',
-            mimeType: 'video/mp4'
+            mimeType: 'video/mp4',
+            mediaType: 'video',
+            autoplay: true,
+            loop: true,
+            controls: false
         }
     ];
     const assetUrlCache = new Map();
@@ -378,11 +391,25 @@
             const block = section && Array.isArray(section.blocks) ? section.blocks[blockIndex] : null;
             const target = childKey ? block && block[childKey] : block;
             if (!target || typeof target !== 'object') return;
-            if (typeof target.src === 'string' && target.src.trim()) return;
-            target.src = patch.src;
-            target.mediaMimeType = patch.mimeType;
+            if (!(typeof target.src === 'string' && target.src.trim())) {
+                target.src = patch.src;
+                changed = true;
+            }
+            if (target.src !== patch.src) return;
+            if (target.mediaMimeType !== patch.mimeType) {
+                target.mediaMimeType = patch.mimeType;
+                changed = true;
+            }
+            if (patch.mediaType && target.mediaType !== patch.mediaType) {
+                target.mediaType = patch.mediaType;
+                changed = true;
+            }
+            ['autoplay', 'loop', 'controls'].forEach((key) => {
+                if (typeof patch[key] === 'undefined' || target[key] === patch[key]) return;
+                target[key] = patch[key];
+                changed = true;
+            });
             if (childKey && block && !block.mediaMimeType) block.mediaMimeType = patch.mimeType;
-            changed = true;
         });
         return changed;
     }
@@ -995,13 +1022,17 @@
         if (hasMedia) {
             if (isVideo) {
                 const mimeType = block.mediaMimeType || (block.localAsset && block.localAsset.mimeType) || mimeTypeFromDataUrl(src);
+                const shouldAutoplay = block.autoplay !== false;
+                const shouldLoop = block.loop !== false;
                 const video = el('video', {
                     attrs: {
-                        controls: block.controls === false ? false : true,
                         muted: true,
-                        autoplay: block.autoplay === true,
-                        loop: block.loop === true,
+                        autoplay: shouldAutoplay,
+                        loop: shouldLoop,
                         playsinline: true,
+                        'webkit-playsinline': true,
+                        disablepictureinpicture: true,
+                        controlslist: 'nodownload noplaybackrate noremoteplayback',
                         preload: isHero ? 'auto' : 'none'
                     }
                 }, el('source', {
@@ -1010,7 +1041,28 @@
                         type: mimeType || 'video/mp4'
                     }
                 }));
+                video.controls = false;
+                video.muted = true;
+                video.defaultMuted = true;
+                video.autoplay = shouldAutoplay;
+                video.loop = shouldLoop;
+                video.playsInline = true;
+                video.removeAttribute('controls');
                 slot.appendChild(video);
+
+                const playVideo = () => {
+                    video.controls = false;
+                    video.muted = true;
+                    video.defaultMuted = true;
+                    video.playsInline = true;
+                    video.removeAttribute('controls');
+                    if (shouldAutoplay && typeof video.play === 'function') {
+                        video.play().catch(() => {});
+                    }
+                };
+
+                video.addEventListener('loadeddata', playVideo, { once: true });
+                video.addEventListener('canplay', playVideo, { once: true });
 
                 const startVideoLoad = () => {
                     if (isAssetRef(src)) {
@@ -1019,16 +1071,16 @@
                             if (resolvedSrc && source) {
                                 source.setAttribute('src', resolvedSrc);
                                 video.load();
-                                if (block.autoplay === true && typeof video.play === 'function') {
-                                    video.play().catch(() => {});
-                                }
+                                playVideo();
                             }
                         }).catch(() => {});
-                    } else if (!video.querySelector('source')?.getAttribute('src')) {
-                        video.load();
-                        if (block.autoplay === true && typeof video.play === 'function') {
-                            video.play().catch(() => {});
+                    } else {
+                        const source = video.querySelector('source');
+                        if (source && !source.getAttribute('src')) {
+                            source.setAttribute('src', src);
                         }
+                        video.load();
+                        playVideo();
                     }
                 };
 
@@ -1154,10 +1206,26 @@
 
     function isVideoMedia(block, field = 'src') {
         const src = block && block[field];
+        const override = getAssetOverride(src) || '';
+        const mimeType = block && (
+            block.mediaMimeType
+            || (block.localAsset && block.localAsset.mimeType)
+            || (block.cloudinary && block.cloudinary.mimeType)
+            || mimeTypeFromDataUrl(src)
+        );
+        const originalName = block && (
+            (block.localAsset && block.localAsset.originalName)
+            || (block.cloudinary && block.cloudinary.originalName)
+            || ''
+        );
         return (block && block.type === 'video')
             || (block && block.media && block.media.type === 'video')
             || (block && block.mediaType === 'video')
-            || (typeof src === 'string' && src.startsWith('data:video'));
+            || (typeof mimeType === 'string' && mimeType.startsWith('video/'))
+            || (typeof src === 'string' && src.startsWith('data:video'))
+            || /\.(mp4|m4v|mov|webm|ogv)(?:$|[?#])/i.test(String(src || ''))
+            || /\.(mp4|m4v|mov|webm|ogv)(?:$|[?#])/i.test(String(override || ''))
+            || /\.(mp4|m4v|mov|webm|ogv)$/i.test(String(originalName || ''));
     }
 
     function clipboardMediaFile(event, isVideo) {
