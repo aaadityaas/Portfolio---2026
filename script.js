@@ -24,6 +24,8 @@ function getCurrentThemeName() {
 }
 
 function scheduleDeferredSiteScripts() {
+    scheduleSitePrefetch();
+
     if (!document.getElementById('ambient-leaves')) return;
 
     const loadAmbient = () => {
@@ -40,6 +42,50 @@ function scheduleDeferredSiteScripts() {
     } else {
         window.setTimeout(loadAmbient, 2000);
     }
+}
+
+function scheduleSitePrefetch() {
+    const isHome = document.querySelector('[data-site-header][data-page="home"]');
+    if (!isHome) return;
+
+    const loadPrefetch = () => {
+        if (document.querySelector('script[data-site-prefetch]')) return;
+        const script = document.createElement('script');
+        script.src = 'asset/site-prefetch.js?v=first-load-1';
+        script.defer = true;
+        script.dataset.sitePrefetch = 'true';
+        document.body.appendChild(script);
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(loadPrefetch, { timeout: 2500 });
+    } else {
+        window.setTimeout(loadPrefetch, 1200);
+    }
+}
+
+function prefetchRouteOnIntent(href) {
+    if (!href) return;
+    if (window.SitePrefetch?.warmRoute) {
+        window.SitePrefetch.warmRoute(href, { priority: true });
+        return;
+    }
+    const page = href.replace(/^\//, '');
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.as = 'document';
+    link.href = page;
+    document.head.appendChild(link);
+}
+
+function bindNavRoutePrefetch() {
+    if (!document.querySelector('[data-site-header][data-page="home"]')) return;
+    document.querySelectorAll('.nav-item[href$=".html"]').forEach((anchor) => {
+        const href = anchor.getAttribute('href');
+        if (!href || href.includes('contact')) return;
+        anchor.addEventListener('mouseenter', () => prefetchRouteOnIntent(href), { passive: true });
+        anchor.addEventListener('focus', () => prefetchRouteOnIntent(href), { passive: true });
+    });
 }
 
 function ensureFooterGrassBaseLoaded(theme = getCurrentThemeName()) {
@@ -459,6 +505,7 @@ if (headerMount) {
         </header>
     `;
     bindThemeToggle();
+    bindNavRoutePrefetch();
 }
 
 const footerMounts = document.querySelectorAll('[data-site-footer]');
@@ -1633,6 +1680,7 @@ workCards.forEach(card => {
 
     card.addEventListener('mouseenter', () => {
         expandCursorTooltip(card);
+        prefetchRouteOnIntent(link);
     });
     card.addEventListener('mouseleave', () => hideCursorTooltip());
 });
@@ -2027,26 +2075,6 @@ if (topContainer && centerContainer && bottomContainer) {
     }, 500);
 
 }
-
-(function prefetchCaseStudyPagesWhenIdle() {
-    const conn = navigator.connection;
-    if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
-    const pages = ['project-1.html', 'project-2.html', 'project-4.html'];
-    const run = () => {
-        pages.forEach((href) => {
-            const link = document.createElement('link');
-            link.rel = 'prefetch';
-            link.as = 'document';
-            link.href = href;
-            document.head.appendChild(link);
-        });
-    };
-    if (typeof window.requestIdleCallback === 'function') {
-        window.requestIdleCallback(run, { timeout: 4000 });
-    } else {
-        window.setTimeout(run, 2500);
-    }
-})();
 
 // --- Camera Interaction ---
 const heroCamera = document.getElementById('hero-camera');

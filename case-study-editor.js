@@ -471,7 +471,8 @@
         const path = BUNDLED_CONTENT_PATHS[CASE_ID];
         if (!path) return fallbackDoc();
         try {
-            const response = await fetch(path, { cache: 'no-store' });
+            const cacheMode = isLocalDev() ? 'no-store' : 'default';
+            const response = await fetch(path, { cache: cacheMode });
             if (!response.ok) return fallbackDoc();
             const parsed = await response.json();
             if (!parsed || parsed.id !== CASE_ID || !Array.isArray(parsed.sections)) return fallbackDoc();
@@ -484,7 +485,8 @@
 
     async function loadAssetManifest() {
         try {
-            const response = await fetch(ASSET_MANIFEST_PATH, { cache: 'no-store' });
+            const cacheMode = isLocalDev() ? 'no-store' : 'default';
+            const response = await fetch(ASSET_MANIFEST_PATH, { cache: cacheMode });
             if (!response.ok) return;
             const parsed = await response.json();
             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
