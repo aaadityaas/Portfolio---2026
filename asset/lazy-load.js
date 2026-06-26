@@ -107,7 +107,7 @@
         heroBootStarted = true;
         return loadThreeJs()
             .then(() => Promise.all([
-                loadScript('asset/dappled-light-shader.js?v=first-load-1'),
+                loadScript('asset/dappled-light-shader.js?v=first-load-2'),
                 loadScript('asset/leaf-fall.js')
             ]))
             .catch(() => { /* hero effects are decorative */ });

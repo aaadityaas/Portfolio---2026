@@ -23,6 +23,56 @@ function getCurrentThemeName() {
     return document.body.classList.contains('night-mode') ? 'dark' : 'light';
 }
 
+let portfolioReady = false;
+const portfolioReadyQueue = [];
+
+function signalPortfolioReady() {
+    if (portfolioReady) return;
+    portfolioReady = true;
+    window.dispatchEvent(new CustomEvent('portfolio:ready'));
+    while (portfolioReadyQueue.length) {
+        const fn = portfolioReadyQueue.shift();
+        try { fn(); } catch (_) { /* non-critical */ }
+    }
+}
+
+function onPortfolioReady(fn) {
+    if (portfolioReady) fn();
+    else portfolioReadyQueue.push(fn);
+}
+
+let gsapPromise = null;
+
+function loadGsap() {
+    if (typeof window.gsap !== 'undefined') return Promise.resolve(window.gsap);
+    if (gsapPromise) return gsapPromise;
+    gsapPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js';
+        script.async = true;
+        script.onload = () => resolve(window.gsap);
+        script.onerror = () => {
+            gsapPromise = null;
+            reject(new Error('GSAP failed to load'));
+        };
+        document.head.appendChild(script);
+    });
+    return gsapPromise;
+}
+
+function scheduleIdleTask(fn, timeout = 1500) {
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(fn, { timeout });
+    } else {
+        window.setTimeout(fn, Math.min(timeout, 800));
+    }
+}
+
+function isLocalDevHost() {
+    const { hostname, protocol } = window.location;
+    return protocol === 'http:' && (hostname === 'localhost' || hostname === '127.0.0.1');
+}
+
 function scheduleDeferredSiteScripts() {
     scheduleSitePrefetch();
 
@@ -51,7 +101,7 @@ function scheduleSitePrefetch() {
     const loadPrefetch = () => {
         if (document.querySelector('script[data-site-prefetch]')) return;
         const script = document.createElement('script');
-        script.src = 'asset/site-prefetch.js?v=first-load-1';
+        script.src = 'asset/site-prefetch.js?v=first-load-2';
         script.defer = true;
         script.dataset.sitePrefetch = 'true';
         document.body.appendChild(script);
@@ -388,6 +438,7 @@ function ensureFooterGrassBaseLoaded(theme = getCurrentThemeName()) {
         if (rafId) cancelAnimationFrame(rafId);
 
         scheduleDeferredSiteScripts();
+        signalPortfolioReady();
 
         function removeLoader() {
             el.removeEventListener('transitionend', onTe);
@@ -998,7 +1049,8 @@ function normalizeHomeCardEditorState(state) {
 
 async function loadHomeCardBundledConfig() {
     try {
-        const response = await fetch(HOME_CARDS_CONFIG_PATH, { cache: 'no-store' });
+        const cacheMode = isLocalDevHost() ? 'no-store' : 'default';
+        const response = await fetch(HOME_CARDS_CONFIG_PATH, { cache: cacheMode });
         if (!response.ok) return null;
         const parsed = await response.json();
         if (!parsed?.cards || typeof parsed.cards !== 'object') return null;
@@ -1647,7 +1699,9 @@ async function initHomeCardEditor() {
     applyAllHomeCardOverlays();
 }
 
-initHomeCardEditor();
+onPortfolioReady(() => {
+    scheduleIdleTask(() => initHomeCardEditor(), 1200);
+});
 
 workCards.forEach(card => {
     const link = card.getAttribute('data-link');
@@ -1705,7 +1759,6 @@ workCards.forEach(card => {
    ========================================================================== */
 (function setupPageFadeTransitions() {
     const FADE_KEY = 'cs-fade';
-    const hasGsap = typeof window.gsap !== 'undefined';
     const reduceMotion = window.matchMedia
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1717,24 +1770,56 @@ workCards.forEach(card => {
         );
     }
 
+    function forcePageVisible() {
+        document.documentElement.classList.remove('cs-incoming');
+        document.documentElement.style.backgroundColor = '';
+        const elems = bodyFadeElems();
+        if (typeof gsap !== 'undefined') {
+            gsap.set(elems, { autoAlpha: 1, clearProps: 'opacity,visibility' });
+        } else {
+            elems.forEach((el) => {
+                el.style.opacity = '';
+                el.style.visibility = '';
+            });
+        }
+    }
+
+    function safeScrollToHash(hash) {
+        if (!hash || hash.length <= 1) return;
+        let target = null;
+        try { target = document.getElementById(decodeURIComponent(hash.slice(1))); }
+        catch (_) { target = document.getElementById(hash.slice(1)); }
+        if (!target || typeof target.scrollIntoView !== 'function') return;
+        try {
+            target.scrollIntoView({ block: 'start', behavior: 'auto' });
+        } catch (_) {
+            target.scrollIntoView();
+        }
+    }
+
     function navigateWithFade(link) {
         if (!link) return;
-        if (!hasGsap) {
-            window.location.href = link;
-            return;
-        }
 
-        try {
-            sessionStorage.setItem(FADE_KEY, JSON.stringify({ ts: Date.now() }));
-        } catch (_) { /* storage unavailable, fade still works */ }
+        const go = () => {
+            if (typeof gsap === 'undefined') {
+                window.location.href = link;
+                return;
+            }
 
-        const dur = reduceMotion ? 0.001 : 0.32;
-        gsap.to(document.body, {
-            autoAlpha: 0,
-            duration: dur,
-            ease: 'power2.in',
-            onComplete: () => { window.location.href = link; }
-        });
+            try {
+                sessionStorage.setItem(FADE_KEY, JSON.stringify({ ts: Date.now() }));
+            } catch (_) { /* storage unavailable, fade still works */ }
+
+            const dur = reduceMotion ? 0.001 : 0.32;
+            gsap.to(document.body, {
+                autoAlpha: 0,
+                duration: dur,
+                ease: 'power2.in',
+                onComplete: () => { window.location.href = link; }
+            });
+        };
+
+        loadGsap().then(go).catch(() => { window.location.href = link; });
     }
 
     // Public entry the card click handler calls.
@@ -1793,45 +1878,31 @@ workCards.forEach(card => {
         const incoming = document.documentElement.classList.contains('cs-incoming');
         if (!incoming) return;
 
-        if (!hasGsap) {
-            document.documentElement.classList.remove('cs-incoming');
-            document.documentElement.style.backgroundColor = '';
-            return;
-        }
-
-        // Every body sibling except #portfolio-loader is hidden via CSS until
-        // we replace that with GSAP-managed opacity — the loader must stay visible.
-        gsap.set(bodyFadeElems(), { autoAlpha: 0 });
-        document.documentElement.classList.remove('cs-incoming');
-
-        // Wait for assets + fonts so the fade reveals a fully-settled
-        // page (no font swap or image-load layout shift mid-fade).
-        whenPageReady(() => {
-            // Re-resolve the URL fragment after layout has settled.
-            // The browser scrolls to the fragment at parse time, but
-            // image and shader-canvas mounts shift the document height
-            // afterwards, so the original scroll lands at the wrong
-            // pixel. We snap to the target element again now that the
-            // page is fully laid out, before the fade reveals it.
-            const hash = window.location.hash;
-            if (hash && hash.length > 1) {
-                let target = null;
-                try { target = document.getElementById(decodeURIComponent(hash.slice(1))); }
-                catch (_) { target = document.getElementById(hash.slice(1)); }
-                if (target && typeof target.scrollIntoView === 'function') {
-                    target.scrollIntoView({ block: 'start', behavior: 'instant' });
-                }
+        const play = () => {
+            if (typeof gsap === 'undefined') {
+                document.documentElement.classList.remove('cs-incoming');
+                document.documentElement.style.backgroundColor = '';
+                return;
             }
 
-            gsap.to(bodyFadeElems(), {
-                autoAlpha: 1,
-                duration: reduceMotion ? 0.001 : 0.45,
-                ease: 'power2.out',
-                onComplete: () => {
-                    document.documentElement.style.backgroundColor = '';
-                }
+            gsap.set(bodyFadeElems(), { autoAlpha: 0 });
+            document.documentElement.classList.remove('cs-incoming');
+
+            whenPageReady(() => {
+                safeScrollToHash(window.location.hash);
+
+                gsap.to(bodyFadeElems(), {
+                    autoAlpha: 1,
+                    duration: reduceMotion ? 0.001 : 0.45,
+                    ease: 'power2.out',
+                    onComplete: () => {
+                        document.documentElement.style.backgroundColor = '';
+                    }
+                });
             });
-        });
+        };
+
+        loadGsap().then(play).catch(forcePageVisible);
     }
 
     if (document.readyState === 'loading') {
@@ -1840,15 +1911,9 @@ workCards.forEach(card => {
         runIncomingFadeIn();
     }
 
-    // Safety: if something kept .cs-incoming around, remove it after a
-    // timeout so the page never stays permanently invisible.
-    setTimeout(() => {
-        if (document.documentElement.classList.contains('cs-incoming')) {
-            document.documentElement.classList.remove('cs-incoming');
-            document.documentElement.style.backgroundColor = '';
-            if (hasGsap) gsap.set(bodyFadeElems(), { autoAlpha: 1, clearProps: 'opacity,visibility' });
-        }
-    }, 1500);
+    // Safety: if fade-in stalls, force the page visible (Chrome can throw on
+    // invalid scrollIntoView options, leaving GSAP autoAlpha at 0).
+    setTimeout(forcePageVisible, 1500);
 
     // bfcache restore: clear any stale fade flag and force the page back
     // to fully visible (otherwise users hitting browser back into a
@@ -1856,9 +1921,7 @@ workCards.forEach(card => {
     window.addEventListener('pageshow', (ev) => {
         if (!ev.persisted) return;
         try { sessionStorage.removeItem(FADE_KEY); } catch (_) {}
-        document.documentElement.classList.remove('cs-incoming');
-        document.documentElement.style.backgroundColor = '';
-        if (hasGsap) gsap.set(bodyFadeElems(), { autoAlpha: 1, clearProps: 'opacity,visibility' });
+        forcePageVisible();
     });
 })();
 
@@ -1968,11 +2031,11 @@ if (mobileBtn && mobileNav) {
 }
 
 // --- 3D Museum Stage Gallery (Beyond the Pixels) ---
-const topContainer = document.getElementById("content-top");
-const centerContainer = document.getElementById("content-center");
-const bottomContainer = document.getElementById("content-bottom");
-
-if (topContainer && centerContainer && bottomContainer) {
+function initBeyondPixelsGallery() {
+    const topContainer = document.getElementById("content-top");
+    const centerContainer = document.getElementById("content-center");
+    const bottomContainer = document.getElementById("content-bottom");
+    if (!topContainer || !centerContainer || !bottomContainer) return;
     const containers = [topContainer, centerContainer, bottomContainer];
 
     // One canonical image set. We render two consecutive copies so the fold
@@ -2073,8 +2136,11 @@ if (topContainer && centerContainer && bottomContainer) {
     setTimeout(() => {
         if (!tickerRaf && tickerInView) tickerRaf = requestAnimationFrame(tick);
     }, 500);
-
 }
+
+onPortfolioReady(() => {
+    scheduleIdleTask(initBeyondPixelsGallery, 2000);
+});
 
 // --- Camera Interaction ---
 const heroCamera = document.getElementById('hero-camera');
@@ -2131,7 +2197,7 @@ if (heroCamera) {
  * Home hero: mask-reveal-up (per-line), aligned with animate-text spec
  * assets/specs/mask-reveal-up.json + site_reference runtime scaling
  */
-(function initHeroHeadlineMaskReveal() {
+function initHeroHeadlineMaskReveal() {
     if (typeof gsap === 'undefined') return;
     const lines = document.querySelectorAll('.hero-v2__headline-line');
     if (!lines.length) return;
@@ -2154,14 +2220,14 @@ if (heroCamera) {
         ease,
         clearProps: 'filter',
     });
-})();
+}
 
 /**
  * Home hero: hover-to-pop on .hero-v2__pixel squares.
  * Emits a small burst of colored mini-pixels from the hovered square
  * and nudges the square itself. Driven by GSAP.
  */
-(function initHeroPixelPop() {
+function initHeroPixelPop() {
     if (typeof gsap === 'undefined') return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
@@ -2262,6 +2328,33 @@ if (heroCamera) {
             }
         }
     });
+}
+
+function scheduleDeferredHeroEffects() {
+    if (!document.querySelector('.hero-v2__headline-line')) return;
+    onPortfolioReady(() => {
+        scheduleIdleTask(() => {
+            loadGsap()
+                .then(() => {
+                    initHeroHeadlineMaskReveal();
+                    initHeroPixelPop();
+                })
+                .catch(() => { /* hero text still readable without motion */ });
+        }, 800);
+    });
+}
+
+scheduleDeferredHeroEffects();
+
+(function finalizePortfolioBoot() {
+    const loader = document.getElementById('portfolio-loader');
+    const loaderDone = !loader
+        || loader.classList.contains('portfolio-loader--done')
+        || !document.body.classList.contains('portfolio-loader-active');
+    if (!portfolioReady && loaderDone) {
+        scheduleDeferredSiteScripts();
+        signalPortfolioReady();
+    }
 })();
 
 
