@@ -18,6 +18,8 @@
 
     const wrapper = document.querySelector('.hero-v2__dappled');
     if (!wrapper) return;
+    if (wrapper.dataset.leafFallMounted === 'true') return;
+    wrapper.dataset.leafFallMounted = 'true';
 
     const reducedMotion = window.matchMedia
         ? window.matchMedia('(prefers-reduced-motion: reduce)')

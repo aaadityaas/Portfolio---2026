@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AS | Designer Portfolio</title>
     <link rel="icon" type="image/png" href="asset/favicon.png?v=blue-logo-1">
-    <link rel="stylesheet" href="style.css?v=no-netlify-cdn-1">
+    <link rel="stylesheet" href="style.css?v=animated-tree-2">
     <!-- Premium Web Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,6 +19,8 @@
     <!-- Defer case-study HTML prefetch until the browser is idle. -->
     <!-- GSAP for animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js" defer></script>
+    <!-- Three.js powers the hero tree shader and the work-card shader. Load it directly so the animated hero is not gated behind idle callbacks. -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" defer></script>
     <!-- Page-transition bootstrap: if we arrived here from a case
          study's fade-out, hide body BEFORE first paint and pin <html>
          to the current theme's bg colour so there is no flash of
@@ -294,6 +296,8 @@
 
     <script src="asset/lazy-load.js?v=lazy-load-1" defer></script>
     <script src="asset/work-shader.js?v=lazy-load-1" defer></script>
+    <script src="asset/dappled-light-shader.js?v=animated-tree-2" defer></script>
+    <script src="asset/leaf-fall.js?v=animated-tree-2" defer></script>
     <script src="asset/ambient-audio.js" defer></script>
     <script src="script.js?v=lazy-load-1" defer></script>
 

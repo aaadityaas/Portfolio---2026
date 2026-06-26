@@ -17,6 +17,8 @@
 
     const canvas = document.getElementById('hero-dappled-canvas');
     if (!canvas) return;
+    if (canvas.dataset.dappledShaderMounted === 'true') return;
+    canvas.dataset.dappledShaderMounted = 'true';
 
     const reducedMotion = window.matchMedia
         ? window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -326,7 +328,7 @@
     // (the shader's alpha output evaluates to 0 against a null sampler).
     const loader = new THREE.TextureLoader();
     loader.load(
-        'asset/optimized/dappled-tree.jpg',
+        'asset/dappled-tree.png',
         (tex) => {
             tex.wrapS = THREE.ClampToEdgeWrapping;
             tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -339,7 +341,7 @@
         },
         undefined,
         (err) => {
-            console.warn('[dappled-light] failed to load asset/optimized/dappled-tree.jpg', err);
+            console.warn('[dappled-light] failed to load asset/dappled-tree.png', err);
         }
     );
 
