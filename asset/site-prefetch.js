@@ -16,9 +16,9 @@
         'project-1.html': { json: 'content/case-study-zapp-account.json' },
         'project-2.html': { json: 'content/case-study-growth-experiments.json' },
         'project-4.html': { json: 'content/case-study-now-and-me.json' },
-        'play.html': { assets: ['asset/play-tab-assets/play_sero.png'] },
+        'play.html': { assets: ['https://cdn.jsdelivr.net/gh/aaadityaas/Portfolio---2026@81e350ac1909487b8fd0452fbf472b2702737013/asset/play-tab-assets/play_sero.png'] },
         'about.html': {
-            assets: ['asset/gallery-beyond-pixels/gallery-web-01.jpg']
+            assets: ['https://cdn.jsdelivr.net/gh/aaadityaas/Portfolio---2026@81e350ac1909487b8fd0452fbf472b2702737013/asset/gallery-beyond-pixels/gallery-web-01.jpg']
         }
     };
 
@@ -111,7 +111,11 @@
     function resolveMediaSrc(src, manifest) {
         if (!src || typeof src !== 'string') return '';
         if (src.startsWith('cs-asset:')) return manifest?.[src] || '';
-        if (src.startsWith('asset/') || src.startsWith('/')) return src.replace(/^\//, '');
+        if (typeof window !== 'undefined' && typeof window.resolveAssetUrl === 'function') {
+            const resolved = window.resolveAssetUrl(src);
+            if (resolved && resolved !== src) return resolved;
+        }
+        if (src.startsWith('/')) return src.replace(/^\//, '');
         return src;
     }
 
