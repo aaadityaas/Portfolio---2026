@@ -2,6 +2,7 @@
 # Media/font assets are NOT served from Netlify; they live on the gh-pages
 # branch and load via https://aaadityaas.github.io/Portfolio---2026/asset/...
 # (see asset/head-boot.js → window.ASSET_BASE_URL).
+# Last touched: 2026-06-27 (force-trigger Netlify build).
 [build]
   publish = "."
   command = ""
