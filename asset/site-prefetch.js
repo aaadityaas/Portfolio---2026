@@ -16,15 +16,15 @@
         'project-1.html': { json: 'content/case-study-zapp-account.json' },
         'project-2.html': { json: 'content/case-study-growth-experiments.json' },
         'project-4.html': { json: 'content/case-study-now-and-me.json' },
-        'play.html': { assets: ['https://cdn.jsdelivr.net/gh/aaadityaas/Portfolio---2026@81e350ac1909487b8fd0452fbf472b2702737013/asset/play-tab-assets/play_sero.png'] },
+        'play.html': { assets: ['https://cdn.jsdelivr.net/gh/aaadityaas/Portfolio---2026@6e5c874de3ca31e0640d69a99ab4991d9a011a37/asset/play-tab-assets/play_sero.png'] },
         'about.html': {
-            assets: ['https://cdn.jsdelivr.net/gh/aaadityaas/Portfolio---2026@81e350ac1909487b8fd0452fbf472b2702737013/asset/gallery-beyond-pixels/gallery-web-01.jpg']
+            assets: ['https://cdn.jsdelivr.net/gh/aaadityaas/Portfolio---2026@6e5c874de3ca31e0640d69a99ab4991d9a011a37/asset/gallery-beyond-pixels/gallery-web-01.jpg']
         }
     };
 
     const SHARED = [
         'content/case-study-asset-manifest.json',
-        'case-study-editor.js?v=first-load-1'
+        'case-study-editor.js?v=cdn-debug-2'
     ];
 
     const OTHER_PAGES = ['play.html', 'about.html'];
